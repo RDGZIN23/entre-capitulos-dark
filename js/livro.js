@@ -1,25 +1,65 @@
+import { carregarLivroComCapitulos } from "./firestore-data.js";
 
-document.addEventListener("DOMContentLoaded",()=>{
+document.addEventListener("DOMContentLoaded", async () => {
   UI.shell("");
-  const id=new URLSearchParams(location.search).get("id");
-  const data=EC.getData(), b=data.books.find(x=>x.id===id)||data.books[0];
-  document.title=b.title+" · Entre Capítulos";
-  $("#detail").innerHTML=`
-    ${UI.coverMarkup(b)}
-    <div>
-      <span class="eyebrow">${UI.esc(b.genre)}</span>
-      <h1>${UI.esc(b.title)}</h1>
-      <div class="muted">por <strong>${UI.esc(b.author)}</strong></div>
-      <div class="meta-pills"><span class="pill">★ ${b.rating}</span><span class="pill">${UI.fmt(b.reads)} leituras</span><span class="pill">${b.chapters.length} capítulos</span></div>
-      <p class="detail-description">${UI.esc(b.description)}</p>
-      <div class="hero-actions detail-actions"><a class="btn btn-primary" href="leitura.html?book=${b.id}&chapter=1">▶ Começar leitura</a><button class="btn" id="favBtn">${data.user.favorites.includes(b.id)?"♥ Na biblioteca":"♡ Adicionar à biblioteca"}</button></div>
-    </div>`;
-  $("#chapters").innerHTML=b.chapters.map(c=>`<a class="chapter" href="leitura.html?book=${b.id}&chapter=${c.number}">
-    <span class="chapter-num">${c.number}</span><span><strong>${UI.esc(c.title)}</strong><span>Capítulo ${c.number}</span></span><b>→</b>
-  </a>`).join("");
-  $("#favBtn").onclick=()=>{
-    const d=EC.getData(),i=d.user.favorites.indexOf(b.id);
-    if(i>=0)d.user.favorites.splice(i,1);else d.user.favorites.push(b.id);
-    EC.saveData(d);$("#favBtn").textContent=i>=0?"♡ Adicionar à biblioteca":"♥ Na biblioteca";UI.toast(i>=0?"Removido da biblioteca":"Adicionado à biblioteca");
-  };
+
+  const id = new URLSearchParams(location.search).get("id");
+  const detail = UI.$("#detail");
+  const chaptersArea = UI.$("#chapters");
+
+  detail.innerHTML = `<div class="loading-state">Carregando livro...</div>`;
+  chaptersArea.innerHTML = `<div class="loading-state">Carregando capítulos...</div>`;
+
+  try {
+    const book = await carregarLivroComCapitulos(id);
+
+    if (!book) {
+      detail.innerHTML = `<div class="loading-state">Este livro não foi encontrado ou não está publicado.</div>`;
+      chaptersArea.innerHTML = "";
+      return;
+    }
+
+    document.title = `${book.title} · Entre Capítulos`;
+
+    const first = book.chapters[0];
+    const readButton = first
+      ? `<a class="btn btn-primary" href="leitura.html?id=${encodeURIComponent(first.id)}">▶ Começar leitura</a>`
+      : `<button class="btn btn-primary" disabled style="opacity:.55;cursor:not-allowed">Sem capítulos publicados</button>`;
+
+    detail.innerHTML = `
+      ${UI.coverMarkup(book)}
+      <div>
+        <span class="eyebrow">${UI.esc(book.genre)}</span>
+        <h1>${UI.esc(book.title)}</h1>
+        <div class="muted">por <strong>${UI.esc(book.author)}</strong></div>
+        <div class="meta-pills">
+          <span class="pill">★ ${book.rating || "Novo"}</span>
+          <span class="pill">${UI.fmt(book.reads)} leituras</span>
+          <span class="pill">${book.chapters.length} capítulos</span>
+        </div>
+        <p class="detail-description">${UI.esc(book.description)}</p>
+        <div class="hero-actions detail-actions">
+          ${readButton}
+          <a class="btn" href="explorar.html">Explorar mais</a>
+        </div>
+      </div>`;
+
+    chaptersArea.innerHTML = book.chapters.length
+      ? book.chapters.map(chapter => `
+          <a class="chapter" href="leitura.html?id=${encodeURIComponent(chapter.id)}">
+            <span class="chapter-num">${chapter.number}</span>
+            <span>
+              <strong>${UI.esc(chapter.title)}</strong>
+              <span>${chapter.summary ? UI.esc(chapter.summary) : `Capítulo ${chapter.number}`}</span>
+            </span>
+            <b>→</b>
+          </a>
+        `).join("")
+      : `<div class="loading-state">Nenhum capítulo publicado ainda.</div>`;
+
+  } catch (erro) {
+    console.error("Erro ao abrir livro:", erro);
+    detail.innerHTML = `<div class="loading-state">Não foi possível carregar este livro.</div>`;
+    chaptersArea.innerHTML = "";
+  }
 });

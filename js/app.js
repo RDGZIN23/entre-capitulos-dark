@@ -12,9 +12,15 @@ function toast(msg){
   window.__toast=setTimeout(()=>t.classList.remove("show"),2200);
 }
 function coverMarkup(book, cls="book-cover"){
+  const cover=String(book?.cover||"").trim();
+  if(cover){
+    return `<div class="${cls} has-image">
+      <img src="${esc(cover)}" alt="Capa de ${esc(book.title||"Livro")}" loading="${cls==="hero-cover"?"eager":"lazy"}">
+    </div>`;
+  }
   return `<div class="${cls}">
-    <div class="cover-title">${esc(book.title)}</div>
-    <div class="cover-author">${esc(book.author)}</div>
+    <div class="cover-title">${esc(book?.title||"Livro")}</div>
+    <div class="cover-author">${esc(book?.author||"")}</div>
   </div>`;
 }
 function bookCard(book){
@@ -23,7 +29,7 @@ function bookCard(book){
     <div class="book-info">
       <strong>${esc(book.title)}</strong>
       <span>${esc(book.author)}</span>
-      <div class="book-stats"><span>◉ ${fmt(book.reads)}</span><span>★ ${book.rating}</span></div>
+      <div class="book-stats"><span>◉ ${fmt(book.reads)}</span><span>★ ${book.rating||"Novo"}</span></div>
     </div>
   </a>`;
 }

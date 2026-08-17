@@ -303,3 +303,32 @@ img{max-width:100%;display:block}
   .profile-stats{grid-template-columns:1fr}
   .reader-content{font-size:1.06rem}
 }
+
+
+/* Capas reais vindas do Firestore/Cloudinary */
+.book-cover.has-image,
+.hero-cover.has-image{
+  background:#0b0f18;
+}
+.book-cover.has-image img,
+.hero-cover.has-image img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  display:block;
+}
+.book-cover.has-image .cover-title,
+.book-cover.has-image .cover-author,
+.hero-cover.has-image .cover-title,
+.hero-cover.has-image .cover-author{
+  display:none;
+}
+.loading-state{
+  grid-column:1/-1;
+  padding:38px 18px;
+  text-align:center;
+  color:var(--muted);
+  border:1px solid var(--line);
+  background:var(--panel);
+  border-radius:18px;
+}
