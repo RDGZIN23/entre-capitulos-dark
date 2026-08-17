@@ -1,12 +1,170 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<link rel="icon" href="assets/logo.svg"><link rel="manifest" href="manifest.json"><meta name="theme-color" content="#080b12"><link rel="stylesheet" href="css/style.css"><title>Painel do autor · Entre Capítulos</title></head>
-<body><header id="topbar" class="topbar"></header><div class="app-layout"><aside id="sidebar" class="sidebar"></aside>
-<div class="content-wrap"><main class="content">
-<div class="section-head"><div><h2 style="font-size:1.6rem">Painel do autor</h2><p>Gerencie histórias, capítulos e desempenho.</p></div></div>
-<div id="kpis" class="kpi-grid"></div>
-<section class="section panel"><div class="section-head"><div><h2>Criar novo livro</h2><p>Depois você poderá editar e adicionar capítulos.</p></div></div>
-<form id="bookForm" class="form-grid"><div class="field"><label>Título</label><input id="bookTitle" required></div><div class="field"><label>Gênero</label><select id="bookGenre"><option>Romance</option><option>Drama</option><option>Fantasia</option><option>Mistério</option><option>Dark Romance</option></select></div><div class="field"><label>Sinopse</label><textarea id="bookDesc"></textarea></div><button class="btn btn-primary" type="submit">Criar livro</button></form>
-</section>
-<section class="section panel"><div class="section-head"><h2>Meus livros</h2></div><div class="table-wrap"><table class="table"><thead><tr><th>Livro</th><th>Capítulos</th><th>Leituras</th><th>Status</th><th></th></tr></thead><tbody id="bookRows"></tbody></table></div></section>
-</main></div></div><nav id="bottomNav" class="bottom-nav"></nav>
-<script src="js/data.js"></script><script src="js/app.js"></script><script src="js/painel.js"></script></body></html>
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <link rel="icon" href="assets/logo.svg">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#080b12">
+  <link rel="stylesheet" href="css/style.css">
+  <title>Painel do autor · Entre Capítulos</title>
+</head>
+<body>
+  <header id="topbar" class="topbar"></header>
+
+  <div class="app-layout">
+    <aside id="sidebar" class="sidebar"></aside>
+    <div class="content-wrap">
+      <main class="content">
+        <div class="section-head">
+          <div>
+            <h2 style="font-size:1.6rem">Painel do autor</h2>
+            <p>Crie livros, edite informações e publique capítulos.</p>
+          </div>
+        </div>
+
+        <div id="kpis" class="kpi-grid"></div>
+
+        <section class="section panel">
+          <div class="section-head">
+            <div>
+              <h2>Criar novo livro</h2>
+              <p>Crie a história e depois adicione os capítulos.</p>
+            </div>
+          </div>
+          <form id="bookForm" class="form-grid">
+            <div class="field">
+              <label>Título</label>
+              <input id="bookTitle" required placeholder="Nome da história">
+            </div>
+            <div class="field">
+              <label>Gênero</label>
+              <select id="bookGenre">
+                <option>Romance</option>
+                <option>Drama</option>
+                <option>Fantasia</option>
+                <option>Mistério</option>
+                <option>Dark Romance</option>
+                <option>Jovem Adulto</option>
+                <option>Suspense</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Sinopse</label>
+              <textarea id="bookDesc" placeholder="Escreva a sinopse do livro..."></textarea>
+            </div>
+            <button class="btn btn-primary" type="submit">+ Criar livro</button>
+          </form>
+        </section>
+
+        <section class="section panel">
+          <div class="section-head">
+            <div>
+              <h2>Meus livros</h2>
+              <p>Edite o livro ou abra o gerenciador de capítulos.</p>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Livro</th>
+                  <th>Capítulos</th>
+                  <th>Leituras</th>
+                  <th>Status</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody id="bookRows"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="editorSection" class="section panel hidden">
+          <div class="section-head">
+            <div>
+              <span class="eyebrow">Editar livro</span>
+              <h2 id="editorHeading">Livro</h2>
+              <p>Altere título, gênero e sinopse.</p>
+            </div>
+            <button id="closeEditor" class="btn" type="button">Fechar</button>
+          </div>
+          <form id="editBookForm" class="form-grid">
+            <input id="editBookId" type="hidden">
+            <div class="field">
+              <label>Título</label>
+              <input id="editBookTitle" required>
+            </div>
+            <div class="field">
+              <label>Gênero</label>
+              <select id="editBookGenre">
+                <option>Romance</option>
+                <option>Drama</option>
+                <option>Fantasia</option>
+                <option>Mistério</option>
+                <option>Dark Romance</option>
+                <option>Jovem Adulto</option>
+                <option>Suspense</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Sinopse</label>
+              <textarea id="editBookDesc"></textarea>
+            </div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap">
+              <button class="btn btn-primary" type="submit">Salvar alterações</button>
+              <button id="deleteBook" class="btn btn-danger" type="button">Excluir livro</button>
+            </div>
+          </form>
+        </section>
+
+        <section id="chapterSection" class="section panel hidden">
+          <div class="section-head">
+            <div>
+              <span class="eyebrow">Capítulos</span>
+              <h2 id="chapterHeading">Gerenciar capítulos</h2>
+              <p>Publique, edite ou exclua capítulos desta história.</p>
+            </div>
+          </div>
+
+          <form id="chapterForm" class="form-grid">
+            <input id="chapterBookId" type="hidden">
+            <input id="editingChapterNumber" type="hidden">
+            <div class="field">
+              <label>Número do capítulo</label>
+              <input id="chapterNumber" type="number" min="1" required placeholder="1">
+            </div>
+            <div class="field">
+              <label>Título do capítulo</label>
+              <input id="chapterTitle" required placeholder="Ex.: O começo de tudo">
+            </div>
+            <div class="field">
+              <label>Texto do capítulo</label>
+              <textarea id="chapterText" style="min-height:330px" required placeholder="Escreva o capítulo aqui.\n\nDeixe uma linha em branco entre os parágrafos."></textarea>
+            </div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap">
+              <button id="saveChapterBtn" class="btn btn-primary" type="submit">+ Publicar capítulo</button>
+              <button id="cancelChapterEdit" class="btn hidden" type="button">Cancelar edição</button>
+            </div>
+          </form>
+
+          <div class="section" style="margin-top:26px">
+            <div class="section-head">
+              <div>
+                <h2>Capítulos publicados</h2>
+                <p id="chapterCount"></p>
+              </div>
+            </div>
+            <div id="chapterRows" class="chapter-list"></div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <nav id="bottomNav" class="bottom-nav"></nav>
+  <script src="js/data.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/painel.js"></script>
+</body>
+</html>
