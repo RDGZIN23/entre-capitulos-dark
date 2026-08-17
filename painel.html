@@ -1,0 +1,12 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<link rel="icon" href="assets/logo.svg"><link rel="manifest" href="manifest.json"><meta name="theme-color" content="#080b12"><link rel="stylesheet" href="css/style.css"><title>Painel do autor · Entre Capítulos</title></head>
+<body><header id="topbar" class="topbar"></header><div class="app-layout"><aside id="sidebar" class="sidebar"></aside>
+<div class="content-wrap"><main class="content">
+<div class="section-head"><div><h2 style="font-size:1.6rem">Painel do autor</h2><p>Gerencie histórias, capítulos e desempenho.</p></div></div>
+<div id="kpis" class="kpi-grid"></div>
+<section class="section panel"><div class="section-head"><div><h2>Criar novo livro</h2><p>Depois você poderá editar e adicionar capítulos.</p></div></div>
+<form id="bookForm" class="form-grid"><div class="field"><label>Título</label><input id="bookTitle" required></div><div class="field"><label>Gênero</label><select id="bookGenre"><option>Romance</option><option>Drama</option><option>Fantasia</option><option>Mistério</option><option>Dark Romance</option></select></div><div class="field"><label>Sinopse</label><textarea id="bookDesc"></textarea></div><button class="btn btn-primary" type="submit">Criar livro</button></form>
+</section>
+<section class="section panel"><div class="section-head"><h2>Meus livros</h2></div><div class="table-wrap"><table class="table"><thead><tr><th>Livro</th><th>Capítulos</th><th>Leituras</th><th>Status</th><th></th></tr></thead><tbody id="bookRows"></tbody></table></div></section>
+</main></div></div><nav id="bottomNav" class="bottom-nav"></nav>
+<script src="js/data.js"></script><script src="js/app.js"></script><script src="js/painel.js"></script></body></html>
