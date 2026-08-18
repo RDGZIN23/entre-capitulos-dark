@@ -1,0 +1,135 @@
+html,
+body.reader-body{
+  width:100%;
+  max-width:100%;
+  min-width:0;
+  overflow-x:hidden !important;
+  -webkit-text-size-adjust:100%;
+  text-size-adjust:100%;
+}
+
+.reader-top,
+.reader-progress{
+  width:100%;
+  max-width:100vw;
+  overflow:hidden;
+}
+
+.reader-top-inner,
+.reader-progress-inner,
+.reader-shell{
+  min-width:0;
+  max-width:100%;
+}
+
+.reader-shell{
+  width:min(calc(100% - 28px),760px) !important;
+  margin:0 auto !important;
+  overflow-x:hidden !important;
+}
+
+.reader-content{
+  display:block;
+  width:100%;
+  max-width:100%;
+  min-width:0;
+  overflow:hidden;
+  font-family:Georgia,"Times New Roman",serif !important;
+  font-size:1.13rem !important;
+  line-height:1.95 !important;
+  color:#e4e6ec;
+  word-break:normal;
+  overflow-wrap:break-word;
+}
+
+.reader-content,
+.reader-content *{
+  box-sizing:border-box;
+  max-width:100% !important;
+  min-width:0 !important;
+  white-space:normal !important;
+  word-break:normal !important;
+  overflow-wrap:break-word !important;
+}
+
+.reader-content p,
+.reader-content div,
+.reader-content span{
+  font-family:inherit !important;
+  font-size:inherit !important;
+  line-height:inherit !important;
+}
+
+.reader-content p,
+.reader-content div{
+  width:100%;
+  margin:0 0 1.45em;
+}
+
+.reader-content h1,
+.reader-content h2,
+.reader-content h3{
+  width:100%;
+  margin:1.4em 0 .7em;
+  line-height:1.3 !important;
+}
+
+.reader-content blockquote{
+  width:100%;
+  margin:1.5em 0;
+  padding:13px 18px;
+  border-left:4px solid #8b5cf6;
+  border-radius:0 12px 12px 0;
+  background:rgba(139,92,246,.08);
+}
+
+.reader-content img,
+.reader-content video,
+.reader-content iframe{
+  display:block;
+  width:auto !important;
+  height:auto !important;
+  max-width:100% !important;
+  margin-inline:auto;
+}
+
+.reader-content table{
+  display:block;
+  width:100% !important;
+  max-width:100% !important;
+  overflow-x:auto;
+}
+
+.reader-content pre,
+.reader-content code{
+  max-width:100% !important;
+  overflow-x:auto;
+  white-space:pre-wrap !important;
+  word-break:break-word !important;
+}
+
+@media(max-width:580px){
+  .reader-shell{
+    width:calc(100% - 30px) !important;
+    padding-top:28px;
+  }
+
+  .reader-content{
+    font-size:18px !important;
+    line-height:1.88 !important;
+  }
+
+  .reader-heading h1{
+    font-size:1.75rem;
+  }
+
+  .reader-progress-inner{
+    grid-template-columns:auto minmax(60px,1fr) auto;
+  }
+
+  .reader-progress .btn{
+    height:42px;
+    padding:0 11px;
+    font-size:.78rem;
+  }
+}

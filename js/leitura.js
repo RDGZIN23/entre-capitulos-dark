@@ -75,12 +75,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function changeFont(direction) {
     const px = parseFloat(getComputedStyle(content).fontSize);
-    content.style.fontSize = `${Math.max(15,Math.min(27,px+direction))}px`;
+    content.style.setProperty(
+      "font-size",
+      `${Math.max(15,Math.min(27,px+direction))}px`,
+      "important"
+    );
   }
 
   function renderText(rawText="") {
     content.innerHTML = "";
-    const text = String(rawText || "").replace(/\u00a0/g," ").trim();
+
+    const text = String(rawText || "")
+      .replace(/\u00a0/g," ")
+      .trim();
 
     if (!text) {
       content.innerHTML = `<p>Este capítulo ainda não possui texto.</p>`;
@@ -91,23 +98,65 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (hasHtml) {
       const parsed = new DOMParser().parseFromString(text,"text/html");
-      parsed.querySelectorAll("script,style,iframe,object,embed,link,meta").forEach(el=>el.remove());
-      parsed.querySelectorAll("*").forEach(el=>{
-        [...el.attributes].forEach(attr=>{
-          const name=attr.name.toLowerCase();
-          const value=String(attr.value||"").trim().toLowerCase();
-          if(name.startsWith("on") || (["href","src"].includes(name) && value.startsWith("javascript:"))){
+
+      parsed
+        .querySelectorAll("script,style,iframe,object,embed,link,meta")
+        .forEach(el => el.remove());
+
+      parsed.querySelectorAll("*").forEach(el => {
+        [...el.attributes].forEach(attr => {
+          const name = attr.name.toLowerCase();
+          const value = String(attr.value || "").trim().toLowerCase();
+
+          if (
+            name.startsWith("on") ||
+            (["href","src"].includes(name) && value.startsWith("javascript:"))
+          ) {
             el.removeAttribute(attr.name);
           }
         });
+
+        [
+          "width",
+          "min-width",
+          "max-width",
+          "white-space",
+          "word-break",
+          "overflow-wrap",
+          "position",
+          "left",
+          "right",
+          "transform",
+          "margin-left",
+          "margin-right",
+          "font-size",
+          "line-height",
+          "font-family"
+        ].forEach(prop => el.style?.removeProperty(prop));
+
+        el.removeAttribute("width");
       });
+
+      const walker = document.createTreeWalker(
+        parsed.body,
+        NodeFilter.SHOW_TEXT
+      );
+
+      let node;
+      while ((node = walker.nextNode())) {
+        node.nodeValue = node.nodeValue.replace(/\u00a0/g," ");
+      }
+
       content.append(...parsed.body.childNodes);
       return;
     }
 
-    text.split(/\n\s*\n/).forEach(paragraph=>{
-      const p=document.createElement("p");
-      p.textContent=paragraph.replace(/\n/g," ").replace(/\s+/g," ").trim();
+    text.split(/\n\s*\n/).forEach(paragraph => {
+      const p = document.createElement("p");
+      p.textContent = paragraph
+        .replace(/\n/g," ")
+        .replace(/\s+/g," ")
+        .trim();
       content.appendChild(p);
     });
   }
