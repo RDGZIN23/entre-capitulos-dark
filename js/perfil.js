@@ -34,6 +34,7 @@ document.addEventListener("DOMContentLoaded", () => {
       ]);
 
       const { auth, db } = firebase;
+
       const {
         collection,
         doc,
@@ -45,158 +46,145 @@ document.addEventListener("DOMContentLoaded", () => {
         where
       } = firestore;
 
-      const {
-        onAuthStateChanged,
-        updateProfile
-      } = authModulo;
+      const { updateProfile } = authModulo;
 
-      onAuthStateChanged(auth, async usuario => {
-        if (!usuario) {
-          name.textContent = "Visitante";
-          bio.textContent = "Entre na sua conta para acessar seu perfil.";
-          avatar.textContent = "?";
-          favCount.textContent = "0";
-          readCount.textContent = "0";
-          following.textContent = "0";
-          profileBooks.innerHTML = `<div class="loading-state">Faça login para ver sua biblioteca.</div>`;
-          editBtn.onclick = () => location.href = "login.html";
-          return;
-        }
+      // Espera o Firebase restaurar a sessão local.
+      if (typeof auth.authStateReady === "function") {
+        await auth.authStateReady();
+      }
+
+      const usuario = auth.currentUser;
+
+      if (!usuario) {
+        mostrarVisitante();
+        return;
+      }
+
+      const [
+        perfilDoc,
+        favoritosSnap,
+        progressosSnap,
+        biblioteca
+      ] = await Promise.all([
+        getDoc(doc(db, "usuarios", usuario.uid)),
+        getDocs(
+          query(
+            collection(db, "favoritos"),
+            where("usuarioId", "==", usuario.uid)
+          )
+        ),
+        getDocs(
+          query(
+            collection(db, "progressoLeitura"),
+            where("usuarioId", "==", usuario.uid)
+          )
+        ),
+        dadosModulo.carregarBibliotecaPublica()
+      ]);
+
+      const perfil = perfilDoc.exists() ? perfilDoc.data() : {};
+
+      const nomeReal =
+        perfil.nome ||
+        usuario.displayName ||
+        "Leitor";
+
+      const bioReal =
+        perfil.biografia ||
+        "Este leitor ainda não escreveu uma biografia.";
+
+      const foto =
+        perfil.fotoURL ||
+        perfil.foto ||
+        usuario.photoURL ||
+        "";
+
+      atualizarAvatar(nomeReal, foto);
+
+      name.textContent = nomeReal;
+      bio.textContent = bioReal;
+      editName.value = nomeReal;
+      editBio.value = perfil.biografia || "";
+
+      favCount.textContent = String(favoritosSnap.size);
+      readCount.textContent = String(progressosSnap.size);
+      following.textContent = "0";
+
+      const favoritos = favoritosSnap.docs.map(d => ({
+        id: d.id,
+        ...d.data()
+      }));
+
+      const livrosFavoritos = favoritos
+        .map(favorito => {
+          const livroReal = biblioteca.books.find(
+            book => book.id === favorito.livroId
+          );
+
+          if (livroReal) return livroReal;
+
+          return {
+            id: favorito.livroId || "",
+            title: favorito.titulo || "Livro",
+            author: favorito.autor || "Autor desconhecido",
+            cover: favorito.capa || "",
+            genre: "",
+            reads: 0,
+            rating: 0,
+            chapters: []
+          };
+        })
+        .filter(book => book.id);
+
+      profileBooks.innerHTML = livrosFavoritos.length
+        ? livrosFavoritos.map(UI.bookCard).join("")
+        : `<div class="loading-state">Você ainda não possui livros salvos.</div>`;
+
+      editBtn.onclick = () => {
+        editPanel.classList.toggle("hidden");
+      };
+
+      saveBtn.onclick = async () => {
+        const novoNome = editName.value.trim() || nomeReal;
+        const novaBio = editBio.value.trim();
+
+        saveBtn.disabled = true;
+        saveBtn.textContent = "Salvando...";
 
         try {
-          const [
-            perfilDoc,
-            favoritosSnap,
-            progressosSnap,
-            biblioteca
-          ] = await Promise.all([
-            getDoc(doc(db, "usuarios", usuario.uid)),
-            getDocs(
-              query(
-                collection(db, "favoritos"),
-                where("usuarioId", "==", usuario.uid)
-              )
-            ),
-            getDocs(
-              query(
-                collection(db, "progressoLeitura"),
-                where("usuarioId", "==", usuario.uid)
-              )
-            ),
-            dadosModulo.carregarBibliotecaPublica()
-          ]);
+          await setDoc(
+            doc(db, "usuarios", usuario.uid),
+            {
+              nome: novoNome,
+              biografia: novaBio,
+              email: usuario.email || "",
+              fotoURL: foto || "",
+              atualizadoEm: serverTimestamp()
+            },
+            { merge: true }
+          );
 
-          const perfil = perfilDoc.exists() ? perfilDoc.data() : {};
+          await updateProfile(usuario, {
+            displayName: novoNome
+          });
 
-          const nomeReal =
-            perfil.nome ||
-            usuario.displayName ||
-            "Leitor";
-
-          const bioReal =
-            perfil.biografia ||
+          name.textContent = novoNome;
+          bio.textContent =
+            novaBio ||
             "Este leitor ainda não escreveu uma biografia.";
 
-          const foto =
-            perfil.fotoURL ||
-            perfil.foto ||
-            usuario.photoURL ||
-            "";
-
-          atualizarAvatar(nomeReal, foto);
-
-          name.textContent = nomeReal;
-          bio.textContent = bioReal;
-          editName.value = nomeReal;
-          editBio.value = perfil.biografia || "";
-
-          favCount.textContent = String(favoritosSnap.size);
-          readCount.textContent = String(progressosSnap.size);
-
-          // O recurso de seguir autores será conectado numa etapa própria.
-          following.textContent = "0";
-
-          const favoritos = favoritosSnap.docs.map(d => ({
-            id: d.id,
-            ...d.data()
-          }));
-
-          const livrosFavoritos = favoritos
-            .map(favorito => {
-              const livroReal = biblioteca.books.find(
-                book => book.id === favorito.livroId
-              );
-
-              if (livroReal) return livroReal;
-
-              return {
-                id: favorito.livroId || "",
-                title: favorito.titulo || "Livro",
-                author: favorito.autor || "Autor desconhecido",
-                cover: favorito.capa || "",
-                genre: "",
-                reads: 0,
-                rating: 0,
-                chapters: []
-              };
-            })
-            .filter(book => book.id);
-
-          profileBooks.innerHTML = livrosFavoritos.length
-            ? livrosFavoritos.map(UI.bookCard).join("")
-            : `<div class="loading-state">Você ainda não possui livros salvos.</div>`;
-
-          editBtn.onclick = () => {
-            editPanel.classList.toggle("hidden");
-          };
-
-          saveBtn.onclick = async () => {
-            const novoNome = editName.value.trim() || nomeReal;
-            const novaBio = editBio.value.trim();
-
-            saveBtn.disabled = true;
-            saveBtn.textContent = "Salvando...";
-
-            try {
-              await setDoc(
-                doc(db, "usuarios", usuario.uid),
-                {
-                  nome: novoNome,
-                  biografia: novaBio,
-                  email: usuario.email || "",
-                  fotoURL: foto || "",
-                  atualizadoEm: serverTimestamp()
-                },
-                { merge: true }
-              );
-
-              await updateProfile(usuario, {
-                displayName: novoNome
-              });
-
-              name.textContent = novoNome;
-              bio.textContent =
-                novaBio ||
-                "Este leitor ainda não escreveu uma biografia.";
-
-              atualizarAvatar(novoNome, foto);
-              editPanel.classList.add("hidden");
-              UI.toast("Perfil atualizado.");
-
-            } catch (erro) {
-              console.error("Erro ao salvar perfil:", erro);
-              UI.toast("Não foi possível salvar o perfil.");
-            } finally {
-              saveBtn.disabled = false;
-              saveBtn.textContent = "Salvar alterações";
-            }
-          };
+          atualizarAvatar(novoNome, foto);
+          editPanel.classList.add("hidden");
+          UI.toast("Perfil atualizado.");
 
         } catch (erro) {
-          console.error("Erro ao carregar perfil:", erro);
-          profileBooks.innerHTML = `<div class="loading-state">Não foi possível carregar seu perfil.</div>`;
+          console.error("Erro ao salvar perfil:", erro);
+          UI.toast("Não foi possível salvar o perfil.");
+        } finally {
+          saveBtn.disabled = false;
+          saveBtn.textContent = "Salvar alterações";
         }
-      });
+      };
 
       function atualizarAvatar(nome, foto) {
         if (foto) {
@@ -219,7 +207,28 @@ document.addEventListener("DOMContentLoaded", () => {
 
     } catch (erro) {
       console.error("Erro ao iniciar perfil:", erro);
-      profileBooks.innerHTML = `<div class="loading-state">Erro ao conectar o perfil ao Firebase.</div>`;
+      profileBooks.innerHTML = `<div class="loading-state">Não foi possível carregar seu perfil.</div>`;
     }
+  }
+
+  function mostrarVisitante() {
+    name.textContent = "Visitante";
+    bio.textContent = "Entre na sua conta para acessar seu perfil.";
+    avatar.style.backgroundImage = "";
+    avatar.textContent = "?";
+    favCount.textContent = "0";
+    readCount.textContent = "0";
+    following.textContent = "0";
+
+    profileBooks.innerHTML = `
+      <div class="loading-state">
+        Você não está conectado.<br>
+        <a class="link" href="login.html">Entrar na conta</a>
+      </div>`;
+
+    editBtn.textContent = "Entrar";
+    editBtn.onclick = () => {
+      location.href = "login.html";
+    };
   }
 });

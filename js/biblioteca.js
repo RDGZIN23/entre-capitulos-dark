@@ -13,84 +13,72 @@ document.addEventListener("DOMContentLoaded", () => {
   async function iniciar() {
     try {
       const [
-        { auth },
+        firebase,
         firestore,
-        dadosModulo,
-        authModulo
+        dadosModulo
       ] = await Promise.all([
         import("./firebase-config.js"),
         import("https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js"),
-        import("./firestore-data.js"),
-        import("https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js")
+        import("./firestore-data.js")
       ]);
 
-      const {
-        collection,
-        getDocs,
-        query,
-        where
-      } = firestore;
+      const { auth, db } = firebase;
+      const { collection, getDocs, query, where } = firestore;
 
-      const { onAuthStateChanged } = authModulo;
+      // Fundamental: espera o Firebase restaurar a sessão salva.
+      if (typeof auth.authStateReady === "function") {
+        await auth.authStateReady();
+      }
 
-      onAuthStateChanged(auth, async usuario => {
-        if (!usuario) {
-          favGrid.innerHTML = `
-            <div class="loading-state">
-              Entre na sua conta para ver seus livros salvos.
-            </div>`;
-          readingList.innerHTML = `
-            <div class="loading-state">
-              Entre na sua conta para continuar suas leituras em qualquer dispositivo.
-            </div>`;
-          return;
-        }
+      const usuario = auth.currentUser;
 
-        try {
-          const [{ books }, favoritosSnap, progressosSnap] = await Promise.all([
-            dadosModulo.carregarBibliotecaPublica(),
-            getDocs(
-              query(
-                collection((await import("./firebase-config.js")).db, "favoritos"),
-                where("usuarioId", "==", usuario.uid)
-              )
-            ),
-            getDocs(
-              query(
-                collection((await import("./firebase-config.js")).db, "progressoLeitura"),
-                where("usuarioId", "==", usuario.uid)
-              )
-            )
-          ]);
+      if (!usuario) {
+        favGrid.innerHTML = `
+          <div class="loading-state">
+            Você não está conectado.<br>
+            <a class="link" href="login.html">Entrar na conta</a>
+          </div>`;
 
-          const favoritos = favoritosSnap.docs
-            .map(doc => ({ id: doc.id, ...doc.data() }))
-            .sort((a,b) => tempo(b.criadoEm) - tempo(a.criadoEm));
+        readingList.innerHTML = `
+          <div class="loading-state">
+            Faça login para sincronizar suas leituras.
+          </div>`;
+        return;
+      }
 
-          const progressos = progressosSnap.docs
-            .map(doc => ({ id: doc.id, ...doc.data() }))
-            .sort((a,b) => tempo(b.atualizadoEm) - tempo(a.atualizadoEm));
+      const [{ books }, favoritosSnap, progressosSnap] = await Promise.all([
+        dadosModulo.carregarBibliotecaPublica(),
+        getDocs(
+          query(
+            collection(db, "favoritos"),
+            where("usuarioId", "==", usuario.uid)
+          )
+        ),
+        getDocs(
+          query(
+            collection(db, "progressoLeitura"),
+            where("usuarioId", "==", usuario.uid)
+          )
+        )
+      ]);
 
-          renderFavoritos(favoritos, books);
-          renderProgressos(progressos, books);
+      const favoritos = favoritosSnap.docs.map(d => ({
+        id: d.id,
+        ...d.data()
+      }));
 
-        } catch (erro) {
-          console.error("Erro ao carregar biblioteca:", erro);
-          favGrid.innerHTML = `
-            <div class="loading-state">
-              Não foi possível carregar seus livros salvos.
-            </div>`;
-          readingList.innerHTML = `
-            <div class="loading-state">
-              Não foi possível carregar seu progresso de leitura.
-            </div>`;
-        }
-      });
+      const progressos = progressosSnap.docs.map(d => ({
+        id: d.id,
+        ...d.data()
+      }));
+
+      renderFavoritos(favoritos, books);
+      renderProgressos(progressos, books);
 
     } catch (erro) {
-      console.error("Erro ao iniciar biblioteca:", erro);
-      favGrid.innerHTML = `<div class="loading-state">Erro ao conectar a Biblioteca ao Firebase.</div>`;
-      readingList.innerHTML = "";
+      console.error("Erro ao carregar biblioteca:", erro);
+      favGrid.innerHTML = `<div class="loading-state">Não foi possível carregar seus livros salvos.</div>`;
+      readingList.innerHTML = `<div class="loading-state">Não foi possível carregar suas leituras.</div>`;
     }
   }
 
@@ -106,7 +94,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const livros = favoritos
       .map(favorito => {
         const real = books.find(book => book.id === favorito.livroId);
-
         if (real) return real;
 
         return {
@@ -117,7 +104,6 @@ document.addEventListener("DOMContentLoaded", () => {
           cover: favorito.capa || "",
           reads: 0,
           rating: 0,
-          description: "",
           chapters: []
         };
       })
@@ -147,36 +133,26 @@ document.addEventListener("DOMContentLoaded", () => {
     readingList.innerHTML = progressos.map(progresso => {
       const livro = books.find(book => book.id === progresso.livroId);
 
-      const titulo =
-        progresso.livroTitulo ||
-        livro?.title ||
-        "Livro";
+      const titulo = progresso.livroTitulo || livro?.title || "Livro";
+      const capa = progresso.capa || livro?.cover || "";
 
-      const capa =
-        progresso.capa ||
-        livro?.cover ||
-        "";
-
-      const numero =
-        Number(
-          progresso.ultimoCapituloNumero ??
-          progresso.numero ??
-          progresso.capituloNumero ??
-          0
-        );
+      const numero = Number(
+        progresso.ultimoCapituloNumero ??
+        progresso.numero ??
+        progresso.capituloNumero ??
+        0
+      );
 
       const capituloId =
         progresso.ultimoCapituloId ||
         progresso.capituloId ||
         "";
 
-      const total =
-        livro?.chapters?.length || 0;
+      const total = livro?.chapters?.length || 0;
 
-      const pct =
-        total && numero
-          ? Math.min(100, Math.round((numero / total) * 100))
-          : 5;
+      const pct = total && numero
+        ? Math.min(100, Math.round((numero / total) * 100))
+        : 5;
 
       const destino = capituloId
         ? `leitura.html?id=${encodeURIComponent(capituloId)}`
@@ -210,12 +186,5 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch {
       return null;
     }
-  }
-
-  function tempo(valor) {
-    if (!valor) return 0;
-    if (typeof valor.toMillis === "function") return valor.toMillis();
-    if (typeof valor.seconds === "number") return valor.seconds * 1000;
-    return Number(valor) || 0;
   }
 });
