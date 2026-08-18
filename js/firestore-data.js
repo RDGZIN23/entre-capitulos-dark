@@ -4,7 +4,9 @@ import {
   collection,
   doc,
   getDoc,
-  getDocs
+  getDocs,
+  query,
+  where
 } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
 
 function statusPublico(valor) {
@@ -30,6 +32,58 @@ async function buscarColecaoSegura(nome) {
   } catch (erro) {
     console.warn(`Não foi possível carregar ${nome}:`, erro);
     return [];
+  }
+}
+
+async function buscarCapitulosPublicadosDoLivro(livroId) {
+  if (!livroId) return [];
+
+  try {
+    // Mesma consulta usada no Entre Capítulos antigo.
+    const consulta = query(
+      collection(db, "capitulos"),
+      where("livroId", "==", livroId),
+      where("status", "==", "publicado")
+    );
+
+    const resultado = await getDocs(consulta);
+
+    return resultado.docs
+      .map(documento => ({
+        id: documento.id,
+        ...documento.data()
+      }))
+      .map(normalizarCapitulo)
+      .sort((a, b) => a.number - b.number);
+
+  } catch (erroConsultaPublicada) {
+    console.warn(
+      "Consulta de capítulos publicados falhou. Tentando compatibilidade:",
+      erroConsultaPublicada
+    );
+
+    try {
+      // Compatibilidade para capítulos antigos sem status.
+      const consulta = query(
+        collection(db, "capitulos"),
+        where("livroId", "==", livroId)
+      );
+
+      const resultado = await getDocs(consulta);
+
+      return resultado.docs
+        .map(documento => ({
+          id: documento.id,
+          ...documento.data()
+        }))
+        .filter(capitulo => statusPublico(capitulo.status))
+        .map(normalizarCapitulo)
+        .sort((a, b) => a.number - b.number);
+
+    } catch (erro) {
+      console.error("Erro ao carregar capítulos do livro:", erro);
+      return [];
+    }
   }
 }
 
@@ -77,8 +131,14 @@ function criarMapaVisualizacoes(visualizacoes) {
   return mapa;
 }
 
-function normalizarLivro(livro, capitulos, mapaAvaliacoes, mapaVisualizacoes) {
+function normalizarLivro(
+  livro,
+  capitulos = [],
+  mapaAvaliacoes = new Map(),
+  mapaVisualizacoes = new Map()
+) {
   const avaliacao = mapaAvaliacoes.get(livro.id);
+
   const rating = avaliacao?.total
     ? Number((avaliacao.soma / avaliacao.total).toFixed(1))
     : 0;
@@ -98,45 +158,44 @@ function normalizarLivro(livro, capitulos, mapaAvaliacoes, mapaVisualizacoes) {
     createdAt: livro.criadoEm || livro.dataCriacao || null,
     updatedAt: livro.atualizadoEm || null,
     raw: livro,
-    chapters: capitulos
-      .filter(capitulo => capitulo.bookId === livro.id)
-      .sort((a, b) => a.number - b.number)
+    chapters: [...capitulos].sort((a, b) => a.number - b.number)
   };
 }
 
 export async function carregarBibliotecaPublica() {
-  const [
-    livrosBrutos,
-    capitulosBrutos,
-    avaliacoes,
-    visualizacoes
-  ] = await Promise.all([
-    buscarColecaoSegura("livros"),
-    buscarColecaoSegura("capitulos"),
+  const livrosBrutos = await buscarColecaoSegura("livros");
+
+  const livrosPublicos = livrosBrutos
+    .filter(livro => statusPublico(livro.status))
+    .sort((a, b) => timestampMs(b.criadoEm || b.dataCriacao) - timestampMs(a.criadoEm || a.dataCriacao));
+
+  const [avaliacoes, visualizacoes] = await Promise.all([
     buscarColecaoSegura("avaliacoes"),
     buscarColecaoSegura("visualizacoesCapitulos")
   ]);
 
-  const capitulos = capitulosBrutos
-    .filter(capitulo => statusPublico(capitulo.status))
-    .map(normalizarCapitulo);
-
   const mapaAvaliacoes = criarMapaAvaliacoes(avaliacoes);
   const mapaVisualizacoes = criarMapaVisualizacoes(visualizacoes);
 
-  const books = livrosBrutos
-    .filter(livro => statusPublico(livro.status))
-    .map(livro =>
-      normalizarLivro(
+  // Carrega os capítulos de cada livro com a mesma query
+  // que já funcionava no projeto original.
+  const books = await Promise.all(
+    livrosPublicos.map(async livro => {
+      const chapters = await buscarCapitulosPublicadosDoLivro(livro.id);
+
+      return normalizarLivro(
         livro,
-        capitulos,
+        chapters,
         mapaAvaliacoes,
         mapaVisualizacoes
-      )
-    )
-    .sort((a, b) => timestampMs(b.createdAt) - timestampMs(a.createdAt));
+      );
+    })
+  );
 
-  return { books, chapters: capitulos };
+  return {
+    books,
+    chapters: books.flatMap(book => book.chapters)
+  };
 }
 
 export async function carregarLivroComCapitulos(livroId) {
@@ -152,27 +211,16 @@ export async function carregarLivroComCapitulos(livroId) {
 
   if (!statusPublico(livroBruto.status)) return null;
 
-  const [
-    capitulosBrutos,
-    avaliacoes,
-    visualizacoes
-  ] = await Promise.all([
-    buscarColecaoSegura("capitulos"),
+  const chapters = await buscarCapitulosPublicadosDoLivro(livroId);
+
+  const [avaliacoes, visualizacoes] = await Promise.all([
     buscarColecaoSegura("avaliacoes"),
     buscarColecaoSegura("visualizacoesCapitulos")
   ]);
 
-  const capitulos = capitulosBrutos
-    .filter(capitulo =>
-      capitulo.livroId === livroId &&
-      statusPublico(capitulo.status)
-    )
-    .map(normalizarCapitulo)
-    .sort((a, b) => a.number - b.number);
-
   return normalizarLivro(
     livroBruto,
-    capitulos,
+    chapters,
     criarMapaAvaliacoes(avaliacoes),
     criarMapaVisualizacoes(visualizacoes)
   );
@@ -186,7 +234,11 @@ export async function carregarContextoCapitulo({
   let capituloBruto = null;
 
   if (chapterId) {
-    const resultado = await getDoc(doc(db, "capitulos", chapterId));
+    // Mesma forma usada pelo leitor antigo.
+    const resultado = await getDoc(
+      doc(db, "capitulos", chapterId)
+    );
+
     if (resultado.exists()) {
       capituloBruto = {
         id: resultado.id,
@@ -194,20 +246,36 @@ export async function carregarContextoCapitulo({
       };
     }
   } else if (bookId && chapterNumber) {
-    const capitulos = await buscarColecaoSegura("capitulos");
-    capituloBruto = capitulos.find(item =>
-      item.livroId === bookId &&
-      Number(item.numero) === Number(chapterNumber) &&
-      statusPublico(item.status)
-    ) || null;
+    const chapters = await buscarCapitulosPublicadosDoLivro(bookId);
+
+    const encontrado = chapters.find(
+      item => Number(item.number) === Number(chapterNumber)
+    );
+
+    if (encontrado) {
+      capituloBruto = {
+        id: encontrado.id,
+        livroId: encontrado.bookId,
+        livroTitulo: encontrado.bookTitle,
+        numero: encontrado.number,
+        titulo: encontrado.title,
+        resumo: encontrado.summary,
+        texto: encontrado.text,
+        status: encontrado.status
+      };
+    }
   }
 
   if (!capituloBruto || !statusPublico(capituloBruto.status)) {
     return null;
   }
 
-  const livroId = capituloBruto.livroId;
-  const livroResultado = await getDoc(doc(db, "livros", livroId));
+  const livroIdFinal = capituloBruto.livroId;
+  if (!livroIdFinal) return null;
+
+  const livroResultado = await getDoc(
+    doc(db, "livros", livroIdFinal)
+  );
 
   if (!livroResultado.exists()) return null;
 
@@ -216,18 +284,22 @@ export async function carregarContextoCapitulo({
     ...livroResultado.data()
   };
 
-  const capitulosBrutos = await buscarColecaoSegura("capitulos");
-
-  const chapters = capitulosBrutos
-    .filter(item =>
-      item.livroId === livroId &&
-      statusPublico(item.status)
-    )
-    .map(normalizarCapitulo)
-    .sort((a, b) => a.number - b.number);
+  const chapters =
+    await buscarCapitulosPublicadosDoLivro(livroIdFinal);
 
   const chapter = normalizarCapitulo(capituloBruto);
-  const index = chapters.findIndex(item => item.id === chapter.id);
+
+  let index = chapters.findIndex(
+    item => item.id === chapter.id
+  );
+
+  // Se o capítulo foi aberto direto mas por algum motivo não
+  // voltou na lista, ainda preservamos a leitura atual.
+  if (index < 0) {
+    chapters.push(chapter);
+    chapters.sort((a, b) => a.number - b.number);
+    index = chapters.findIndex(item => item.id === chapter.id);
+  }
 
   return {
     book: {
@@ -242,6 +314,9 @@ export async function carregarContextoCapitulo({
     chapters,
     index,
     previous: index > 0 ? chapters[index - 1] : null,
-    next: index >= 0 && index < chapters.length - 1 ? chapters[index + 1] : null
+    next:
+      index >= 0 && index < chapters.length - 1
+        ? chapters[index + 1]
+        : null
   };
 }
