@@ -1,129 +1,416 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    function signedIn() { return request.auth != null; }
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
     function registered() {
       return signedIn()
         && request.auth.token.firebase.sign_in_provider != "anonymous";
     }
-    function mine(uid) { return registered() && request.auth.uid == uid; }
-    function isAdmin() { return registered() && request.auth.token.admin == true; }
+
+    function mine(uid) {
+      return registered()
+        && request.auth.uid == uid;
+    }
+
+    function isAdmin() {
+      return registered()
+        && request.auth.uid == "VPjjYv2NOdXMTTTxynB1MHTrfx23";
+    }
+
     function bookOwner(bookId) {
       return registered()
-        && get(/databases/$(database)/documents/livros/$(bookId)).data.criadoPor == request.auth.uid;
+        && get(
+          /databases/$(database)/documents/livros/$(bookId)
+        ).data.criadoPor == request.auth.uid;
     }
+
+    // ==============================
+    // USUÁRIOS
+    // ==============================
 
     match /usuarios/{uid} {
-      allow create: if mine(uid) && request.resource.data.uid == uid;
-      allow get, update, delete: if mine(uid);
-      allow list: if false;
+      allow create:
+        if mine(uid)
+        && request.resource.data.uid == uid;
+
+      allow get:
+        if mine(uid)
+        || isAdmin();
+
+      allow update:
+        if mine(uid)
+        || isAdmin();
+
+      allow delete:
+        if mine(uid)
+        || isAdmin();
+
+      allow list:
+        if isAdmin();
     }
+
+    // ==============================
+    // PERFIL PÚBLICO DE AUTORES
+    // ==============================
 
     match /autores/{uid} {
-      allow read: if true;
-      allow create, update, delete: if mine(uid);
+      allow read:
+        if true;
+
+      allow create, update, delete:
+        if mine(uid)
+        || isAdmin();
     }
+
+    // ==============================
+    // LIVROS
+    // ==============================
 
     match /livros/{bookId} {
-      allow get: if resource.data.status == "publicado"
-        || (registered() && resource.data.criadoPor == request.auth.uid)
+      allow get:
+        if resource.data.status == "publicado"
+        || (
+          registered()
+          && resource.data.criadoPor == request.auth.uid
+        )
         || isAdmin();
-      allow list: if resource.data.status == "publicado"
-        || (registered() && resource.data.criadoPor == request.auth.uid)
+
+      allow list:
+        if resource.data.status == "publicado"
+        || (
+          registered()
+          && resource.data.criadoPor == request.auth.uid
+        )
         || isAdmin();
-      allow create: if registered()
+
+      allow create:
+        if registered()
         && request.resource.data.criadoPor == request.auth.uid
         && request.resource.data.titulo is string
+        && request.resource.data.titulo.size() > 0
         && request.resource.data.sinopse is string
         && request.resource.data.autor is string
-        && request.resource.data.status in ["rascunho","publicado"];
-      allow update: if registered()
-        && resource.data.criadoPor == request.auth.uid
-        && request.resource.data.criadoPor == resource.data.criadoPor;
-      allow delete: if registered() && resource.data.criadoPor == request.auth.uid;
+        && request.resource.data.autor.size() > 0
+        && request.resource.data.status
+          in ["rascunho", "publicado"];
+
+      allow update:
+        if (
+          registered()
+          && resource.data.criadoPor == request.auth.uid
+          && request.resource.data.criadoPor
+            == resource.data.criadoPor
+        )
+        || isAdmin();
+
+      allow delete:
+        if (
+          registered()
+          && resource.data.criadoPor == request.auth.uid
+        )
+        || isAdmin();
     }
+
+    // ==============================
+    // CAPÍTULOS
+    // ==============================
 
     match /capitulos/{chapterId} {
-      allow get: if resource.data.status == "publicado"
+      allow get:
+        if resource.data.status == "publicado"
         || bookOwner(resource.data.livroId)
         || isAdmin();
-      allow list: if resource.data.status == "publicado"
+
+      allow list:
+        if resource.data.status == "publicado"
         || bookOwner(resource.data.livroId)
         || isAdmin();
-      allow create: if registered()
+
+      allow create:
+        if registered()
         && request.resource.data.criadoPor == request.auth.uid
         && bookOwner(request.resource.data.livroId)
-        && request.resource.data.status in ["rascunho","publicado"]
-        && request.resource.data.numero is number;
-      allow update: if registered()
-        && bookOwner(resource.data.livroId)
-        && request.resource.data.livroId == resource.data.livroId
-        && request.resource.data.criadoPor == resource.data.criadoPor;
-      allow delete: if registered() && bookOwner(resource.data.livroId);
+        && request.resource.data.status
+          in ["rascunho", "publicado"]
+        && request.resource.data.numero is number
+        && request.resource.data.numero >= 1
+        && request.resource.data.titulo is string
+        && request.resource.data.titulo.size() > 0;
+
+      allow update:
+        if (
+          registered()
+          && bookOwner(resource.data.livroId)
+          && request.resource.data.livroId
+            == resource.data.livroId
+          && request.resource.data.criadoPor
+            == resource.data.criadoPor
+        )
+        || isAdmin();
+
+      allow delete:
+        if (
+          registered()
+          && bookOwner(resource.data.livroId)
+        )
+        || isAdmin();
     }
+
+    // ==============================
+    // FAVORITOS / BIBLIOTECA
+    // ==============================
 
     match /favoritos/{favoriteId} {
-      allow read: if registered() && resource.data.usuarioId == request.auth.uid;
-      allow create: if registered() && request.resource.data.usuarioId == request.auth.uid;
-      allow delete: if registered() && resource.data.usuarioId == request.auth.uid;
-      allow update: if false;
+      allow get:
+        if registered()
+        && favoriteId.matches(request.auth.uid + '_.*');
+
+      allow list:
+        if registered()
+        && resource.data.usuarioId
+          == request.auth.uid;
+
+      allow create:
+        if registered()
+        && request.resource.data.usuarioId
+          == request.auth.uid
+        && favoriteId
+          == request.auth.uid
+          + "_"
+          + request.resource.data.livroId;
+
+      allow delete:
+        if (
+          registered()
+          && resource.data.usuarioId
+            == request.auth.uid
+        )
+        || isAdmin();
+
+      allow update:
+        if false;
     }
+
+    // ==============================
+    // PROGRESSO DE LEITURA
+    // ==============================
 
     match /progressoLeitura/{progressId} {
-      allow read: if registered() && resource.data.usuarioId == request.auth.uid;
-      allow create: if registered() && request.resource.data.usuarioId == request.auth.uid;
-      allow update: if registered()
-        && resource.data.usuarioId == request.auth.uid
-        && request.resource.data.usuarioId == request.auth.uid;
-      allow delete: if registered() && resource.data.usuarioId == request.auth.uid;
+      allow read:
+        if registered()
+        && resource.data.usuarioId
+          == request.auth.uid;
+
+      allow create:
+        if registered()
+        && request.resource.data.usuarioId
+          == request.auth.uid
+        && progressId
+          == request.auth.uid
+          + "_"
+          + request.resource.data.livroId;
+
+      allow update:
+        if registered()
+        && resource.data.usuarioId
+          == request.auth.uid
+        && request.resource.data.usuarioId
+          == request.auth.uid;
+
+      allow delete:
+        if (
+          registered()
+          && resource.data.usuarioId
+            == request.auth.uid
+        )
+        || isAdmin();
     }
+
+    // ==============================
+    // SEGUIR AUTORES
+    // ==============================
 
     match /seguindoAutores/{followId} {
-      allow read: if registered() && resource.data.usuarioId == request.auth.uid;
-      allow create: if registered()
-        && request.resource.data.usuarioId == request.auth.uid
-        && request.resource.data.autorId is string;
-      allow delete: if registered() && resource.data.usuarioId == request.auth.uid;
-      allow update: if false;
+      allow get:
+        if registered()
+        && followId.matches(request.auth.uid + '_.*');
+
+      allow list:
+        if registered()
+        && resource.data.usuarioId
+          == request.auth.uid;
+
+      allow create:
+        if registered()
+        && request.resource.data.usuarioId
+          == request.auth.uid
+        && request.resource.data.autorId is string
+        && followId
+          == request.auth.uid
+          + "_"
+          + request.resource.data.autorId;
+
+      allow delete:
+        if (
+          registered()
+          && resource.data.usuarioId
+            == request.auth.uid
+        )
+        || isAdmin();
+
+      allow update:
+        if false;
     }
+
+    // ==============================
+    // AVALIAÇÕES
+    // ==============================
 
     match /avaliacoes/{ratingId} {
-      allow read: if true;
-      allow create, update: if registered()
-        && request.resource.data.usuarioId == request.auth.uid
+      allow read:
+        if true;
+
+      allow create:
+        if registered()
+        && request.resource.data.usuarioId
+          == request.auth.uid
+        && request.resource.data.livroId is string
+        && request.resource.data.livroId.size() > 0
+        && request.resource.data.nota is int
         && request.resource.data.nota >= 1
-        && request.resource.data.nota <= 5;
-      allow delete: if registered() && resource.data.usuarioId == request.auth.uid;
+        && request.resource.data.nota <= 5
+        && ratingId
+          == request.resource.data.livroId
+          + "_"
+          + request.auth.uid;
+
+      allow update:
+        if (
+          registered()
+          && resource.data.usuarioId
+            == request.auth.uid
+          && request.resource.data.usuarioId
+            == request.auth.uid
+          && request.resource.data.livroId
+            == resource.data.livroId
+          && request.resource.data.nota is int
+          && request.resource.data.nota >= 1
+          && request.resource.data.nota <= 5
+          && ratingId
+            == request.resource.data.livroId
+            + "_"
+            + request.auth.uid
+        )
+        || isAdmin();
+
+      allow delete:
+        if (
+          registered()
+          && resource.data.usuarioId
+            == request.auth.uid
+        )
+        || isAdmin();
     }
 
+    // ==============================
+    // COMENTÁRIOS
+    // ==============================
+
     match /comentarios/{commentId} {
-      allow read: if true;
-      allow create: if registered()
-        && request.resource.data.usuarioId == request.auth.uid
+      allow read:
+        if true;
+
+      allow create:
+        if registered()
+        && request.resource.data.usuarioId
+          == request.auth.uid
+        && request.resource.data.capituloId is string
+        && request.resource.data.capituloId.size() > 0
         && request.resource.data.comentario is string
         && request.resource.data.comentario.size() >= 2
         && request.resource.data.comentario.size() <= 1200;
-      allow update: if registered()
-        && resource.data.usuarioId == request.auth.uid
-        && request.resource.data.usuarioId == resource.data.usuarioId;
-      allow delete: if (registered() && resource.data.usuarioId == request.auth.uid) || isAdmin();
+
+      allow update:
+        if (
+          registered()
+          && resource.data.usuarioId
+            == request.auth.uid
+          && request.resource.data.usuarioId
+            == resource.data.usuarioId
+          && request.resource.data.comentario is string
+          && request.resource.data.comentario.size() >= 2
+          && request.resource.data.comentario.size() <= 1200
+        )
+        || isAdmin();
+
+      allow delete:
+        if (
+          registered()
+          && resource.data.usuarioId
+            == request.auth.uid
+        )
+        || isAdmin();
     }
+
+    // ==============================
+    // VISUALIZAÇÕES DE CAPÍTULOS
+    // ==============================
 
     match /visualizacoesCapitulos/{viewId} {
-      allow read: if signedIn();
-      allow create: if signedIn()
-        && request.resource.data.usuarioId == request.auth.uid
-        && request.resource.data.capituloId is string;
-      allow update, delete: if false;
+      allow read:
+        if signedIn();
+
+      allow create:
+        if signedIn()
+        && request.resource.data.usuarioId
+          == request.auth.uid
+        && request.resource.data.capituloId is string
+        && request.resource.data.capituloId.size() > 0
+        && viewId
+          == request.resource.data.capituloId
+          + "_"
+          + request.auth.uid;
+
+      allow update:
+        if false;
+
+      allow delete:
+        if isAdmin();
     }
 
+    // ==============================
+    // CURTIDAS DE CAPÍTULOS
+    // ==============================
+
     match /curtidasCapitulos/{likeId} {
-      allow read: if signedIn();
-      allow create: if registered()
-        && request.resource.data.usuarioId == request.auth.uid;
-      allow delete: if registered()
-        && resource.data.usuarioId == request.auth.uid;
-      allow update: if false;
+      allow read:
+        if signedIn();
+
+      allow create:
+        if registered()
+        && request.resource.data.usuarioId
+          == request.auth.uid
+        && request.resource.data.capituloId is string
+        && likeId
+          == request.resource.data.capituloId
+          + "_"
+          + request.auth.uid;
+
+      allow delete:
+        if (
+          registered()
+          && resource.data.usuarioId
+            == request.auth.uid
+        )
+        || isAdmin();
+
+      allow update:
+        if false;
     }
   }
 }
