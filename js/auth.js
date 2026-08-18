@@ -1,9 +1,8 @@
 import { auth, db } from "./firebase-config.js";
 
 import {
-  browserLocalPersistence,
   createUserWithEmailAndPassword,
-  setPersistence,
+  onAuthStateChanged,
   signInWithEmailAndPassword,
   updateProfile
 } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
@@ -54,11 +53,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const modo = document.body.dataset.auth;
   const botao = form.querySelector('button[type="submit"]');
+  let enviando = false;
 
-  form.addEventListener("submit", async (evento) => {
+  // Se a conta já estiver restaurada pelo Firebase, não deixa o usuário preso no login.
+  onAuthStateChanged(auth, usuario => {
+    if (usuario && !enviando) {
+      window.location.replace("perfil.html");
+    }
+  });
+
+  form.addEventListener("submit", async evento => {
     evento.preventDefault();
 
-    const email = document.querySelector("#email")?.value.trim() || "";
+    const email = document.querySelector("#email")?.value.trim().toLowerCase() || "";
     const senha = document.querySelector("#password")?.value || "";
 
     if (!email || senha.length < 6) {
@@ -66,36 +73,47 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
+    enviando = true;
     const textoOriginal = botao.textContent;
     botao.disabled = true;
     botao.textContent = modo === "signup" ? "Criando conta..." : "Entrando...";
 
     try {
-      // Mantém a conta conectada mesmo ao trocar de página ou fechar a aba.
-      await setPersistence(auth, browserLocalPersistence);
-
       if (modo === "signup") {
         const nome = document.querySelector("#name")?.value.trim() || "Leitor";
-        const credencial = await createUserWithEmailAndPassword(auth, email, senha);
 
-        await updateProfile(credencial.user, { displayName: nome });
-        await criarPerfilFirestore(credencial.user, nome);
+        const credencial = await createUserWithEmailAndPassword(
+          auth,
+          email,
+          senha
+        );
+
+        await updateProfile(credencial.user, {
+          displayName: nome
+        });
+
+        await criarPerfilFirestore(
+          credencial.user,
+          nome
+        );
 
         UI.toast("Conta criada com sucesso.");
       } else {
-        await signInWithEmailAndPassword(auth, email, senha);
+        await signInWithEmailAndPassword(
+          auth,
+          email,
+          senha
+        );
+
         UI.toast("Login realizado com sucesso.");
       }
 
-      // Aguarda o estado de autenticação ser gravado antes de redirecionar.
-      if (typeof auth.authStateReady === "function") {
-        await auth.authStateReady();
-      }
-
-      window.location.replace("index.html");
+      // signInWithEmailAndPassword só resolve depois que o Firebase autenticou.
+      window.location.replace("perfil.html");
 
     } catch (erro) {
       console.error("Erro de autenticação:", erro);
+      enviando = false;
       UI.toast(traduzirErroFirebase(erro));
       botao.disabled = false;
       botao.textContent = textoOriginal;

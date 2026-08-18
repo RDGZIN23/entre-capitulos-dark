@@ -15,70 +15,81 @@ document.addEventListener("DOMContentLoaded", () => {
       const [
         firebase,
         firestore,
+        authModulo,
         dadosModulo
       ] = await Promise.all([
         import("./firebase-config.js"),
         import("https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js"),
+        import("https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js"),
         import("./firestore-data.js")
       ]);
 
       const { auth, db } = firebase;
       const { collection, getDocs, query, where } = firestore;
+      const { onAuthStateChanged } = authModulo;
 
-      // Fundamental: espera o Firebase restaurar a sessão salva.
-      if (typeof auth.authStateReady === "function") {
-        await auth.authStateReady();
-      }
+      let processando = false;
 
-      const usuario = auth.currentUser;
+      onAuthStateChanged(auth, async usuario => {
+        if (processando) return;
 
-      if (!usuario) {
-        favGrid.innerHTML = `
-          <div class="loading-state">
-            Você não está conectado.<br>
-            <a class="link" href="login.html">Entrar na conta</a>
-          </div>`;
+        if (!usuario) {
+          favGrid.innerHTML = `
+            <div class="loading-state">
+              Você não está conectado.<br>
+              <a class="link" href="login.html">Entrar na conta</a>
+            </div>`;
 
-        readingList.innerHTML = `
-          <div class="loading-state">
-            Faça login para sincronizar suas leituras.
-          </div>`;
-        return;
-      }
+          readingList.innerHTML = `
+            <div class="loading-state">
+              Faça login para sincronizar suas leituras.
+            </div>`;
+          return;
+        }
 
-      const [{ books }, favoritosSnap, progressosSnap] = await Promise.all([
-        dadosModulo.carregarBibliotecaPublica(),
-        getDocs(
-          query(
-            collection(db, "favoritos"),
-            where("usuarioId", "==", usuario.uid)
-          )
-        ),
-        getDocs(
-          query(
-            collection(db, "progressoLeitura"),
-            where("usuarioId", "==", usuario.uid)
-          )
-        )
-      ]);
+        processando = true;
 
-      const favoritos = favoritosSnap.docs.map(d => ({
-        id: d.id,
-        ...d.data()
-      }));
+        try {
+          const [{ books }, favoritosSnap, progressosSnap] = await Promise.all([
+            dadosModulo.carregarBibliotecaPublica(),
+            getDocs(
+              query(
+                collection(db, "favoritos"),
+                where("usuarioId", "==", usuario.uid)
+              )
+            ),
+            getDocs(
+              query(
+                collection(db, "progressoLeitura"),
+                where("usuarioId", "==", usuario.uid)
+              )
+            )
+          ]);
 
-      const progressos = progressosSnap.docs.map(d => ({
-        id: d.id,
-        ...d.data()
-      }));
+          const favoritos = favoritosSnap.docs.map(d => ({
+            id: d.id,
+            ...d.data()
+          }));
 
-      renderFavoritos(favoritos, books);
-      renderProgressos(progressos, books);
+          const progressos = progressosSnap.docs.map(d => ({
+            id: d.id,
+            ...d.data()
+          }));
+
+          renderFavoritos(favoritos, books);
+          renderProgressos(progressos, books);
+
+        } catch (erro) {
+          console.error("Erro ao carregar biblioteca:", erro);
+          favGrid.innerHTML = `<div class="loading-state">Não foi possível carregar seus livros salvos.</div>`;
+          readingList.innerHTML = `<div class="loading-state">Não foi possível carregar suas leituras.</div>`;
+        }
+      });
 
     } catch (erro) {
-      console.error("Erro ao carregar biblioteca:", erro);
-      favGrid.innerHTML = `<div class="loading-state">Não foi possível carregar seus livros salvos.</div>`;
-      readingList.innerHTML = `<div class="loading-state">Não foi possível carregar suas leituras.</div>`;
+      console.error("Erro ao iniciar biblioteca:", erro);
+      favGrid.innerHTML = `<div class="loading-state">Erro ao conectar a Biblioteca ao Firebase.</div>`;
+      readingList.innerHTML = "";
     }
   }
 
