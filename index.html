@@ -1,9 +1,10 @@
 <!doctype html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<link rel="icon" href="assets/logo.svg"><link rel="manifest" href="manifest.json"><meta name="theme-color" content="#080b12"><link rel="stylesheet" href="css/style.css"><title>Início · Entre Capítulos</title></head>
-<body><header id="topbar" class="topbar"></header><div class="app-layout"><aside id="sidebar" class="sidebar"></aside>
-<div class="content-wrap"><main class="content">
-<section id="hero" class="hero"></section>
-<section class="section"><div class="section-head"><div><h2>Continue lendo</h2><p>Retome de onde você parou.</p></div><a class="link" href="biblioteca.html">Ver biblioteca</a></div><div id="continueList" class="horizontal-list"></div></section>
-<section class="section"><div class="section-head"><div><h2>Histórias em alta</h2><p>O que os leitores estão descobrindo agora.</p></div><a class="link" href="explorar.html">Ver todas</a></div><div class="filters"><span class="filter active">Todas</span><span class="filter">Romance</span><span class="filter">Drama</span><span class="filter">Mistério</span><span class="filter">Dark Romance</span></div><div id="trendingGrid" class="book-grid"></div></section>
-</main></div></div><nav id="bottomNav" class="bottom-nav"></nav>
-<script src="js/data.js"></script><script src="js/app.js"></script><script src="js/index.js"></script></body></html>
+<script src="js/theme-init.js"></script>
+<link rel="icon" href="assets/logo.svg"><link rel="manifest" href="manifest.json"><meta name="theme-color" content="#080b12">
+<link rel="stylesheet" href="css/style.css"><title>Início · Entre Capítulos</title></head>
+<body><header id="topbar" class="topbar"></header><div class="app-layout"><aside id="sidebar" class="sidebar"></aside><div class="content-wrap"><main class="content">
+<section id="hero" class="hero"><div class="loading-state">Carregando histórias...</div></section>
+<section class="section"><div class="section-head"><div><h2>Continue lendo</h2><p>Retome sua leitura.</p></div><a class="link" href="biblioteca.html">Ver biblioteca</a></div><div id="continueList" class="horizontal-list"></div></section>
+<section class="section"><div class="section-head"><div><h2>Histórias em alta</h2><p>Descubra novas leituras.</p></div><a class="link" href="explorar.html">Ver todas</a></div><div id="homeFilters" class="filters"></div><div id="bookGrid" class="book-grid"></div></section>
+</main><footer id="siteFooter" class="site-footer"></footer></div></div><nav id="bottomNav" class="bottom-nav"></nav>
+<script src="js/app.js"></script><script type="module" src="js/home.js"></script></body></html>

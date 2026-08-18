@@ -1,8 +1,11 @@
 <!doctype html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<link rel="icon" href="assets/logo.svg"><link rel="manifest" href="manifest.json"><meta name="theme-color" content="#080b12"><link rel="stylesheet" href="css/style.css"><title>Livro · Entre Capítulos</title></head>
-<body><header id="topbar" class="topbar"></header><div class="app-layout"><aside id="sidebar" class="sidebar"></aside>
-<div class="content-wrap"><main class="content">
-<section id="detail" class="detail"></section>
-<section class="section detail-chapters"><div class="section-head"><div><h2>Capítulos</h2><p>Leia na ordem ou escolha onde continuar.</p></div></div><div id="chapters" class="chapter-list"></div></section>
-</main></div></div><nav id="bottomNav" class="bottom-nav"></nav>
-<script src="js/data.js"></script><script src="js/app.js"></script><script src="js/livro.js"></script></body></html>
+<script src="js/theme-init.js"></script>
+<link rel="icon" href="assets/logo.svg"><link rel="manifest" href="manifest.json"><meta name="theme-color" content="#080b12">
+<link rel="stylesheet" href="css/style.css"><title>Livro · Entre Capítulos</title></head>
+<body><header id="topbar" class="topbar"></header><div class="app-layout"><aside id="sidebar" class="sidebar"></aside><div class="content-wrap"><main class="content">
+<section id="detail" class="detail"><div class="loading-state">Carregando livro...</div></section>
+<section id="supportBox" class="section hidden"></section>
+<section class="section"><div class="section-head"><div><h2>Capítulos</h2><p id="chapterMeta"></p></div></div><div id="chapters" class="chapter-list"></div></section>
+<section class="section panel"><div class="section-head"><div><h2>Avaliações</h2><p id="ratingSummary">O que os leitores acharam.</p></div></div><div id="ratingForm"></div><div id="ratings"></div></section>
+</main><footer id="siteFooter" class="site-footer"></footer></div></div><nav id="bottomNav" class="bottom-nav"></nav>
+<script src="js/app.js"></script><script type="module" src="js/book.js"></script></body></html>

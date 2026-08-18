@@ -1,0 +1,33 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "capitulos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "livroId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "livros",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "criadoPor",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}
