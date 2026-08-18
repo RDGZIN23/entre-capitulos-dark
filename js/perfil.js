@@ -14,6 +14,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const editBio = UI.$("#editBio");
   const editBtn = UI.$("#editBtn");
   const saveBtn = UI.$("#saveProfile");
+  const logoutBtn = UI.$("#logoutBtn");
 
   profileBooks.innerHTML = `<div class="loading-state">Carregando perfil...</div>`;
 
@@ -48,8 +49,25 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const {
         onAuthStateChanged,
-        updateProfile
+        updateProfile,
+        signOut
       } = authModulo;
+
+      logoutBtn.onclick = async () => {
+        logoutBtn.disabled = true;
+        logoutBtn.textContent = "Saindo...";
+
+        try {
+          await signOut(auth);
+          localStorage.removeItem("ultimoCapituloLido");
+          window.location.replace("login.html");
+        } catch (erro) {
+          console.error("Erro ao sair:", erro);
+          UI.toast("Não foi possível sair da conta.");
+          logoutBtn.disabled = false;
+          logoutBtn.textContent = "Sair";
+        }
+      };
 
       let carregado = false;
 
@@ -192,14 +210,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
         } catch (erro) {
           console.error("Erro ao carregar perfil:", erro);
-          profileBooks.innerHTML = `<div class="loading-state">Não foi possível carregar seu perfil.</div>`;
+          profileBooks.innerHTML =
+            `<div class="loading-state">Não foi possível carregar seu perfil.</div>`;
         }
       });
 
       function atualizarAvatar(nomeReal, foto) {
         if (foto) {
           avatar.textContent = "";
-          avatar.style.backgroundImage = `url("${foto.replace(/"/g, "%22")}")`;
+          avatar.style.backgroundImage =
+            `url("${foto.replace(/"/g, "%22")}")`;
           avatar.style.backgroundSize = "cover";
           avatar.style.backgroundPosition = "center";
           return;
@@ -217,7 +237,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     } catch (erro) {
       console.error("Erro ao iniciar perfil:", erro);
-      profileBooks.innerHTML = `<div class="loading-state">Erro ao conectar o perfil ao Firebase.</div>`;
+      profileBooks.innerHTML =
+        `<div class="loading-state">Erro ao conectar o perfil ao Firebase.</div>`;
     }
   }
 
@@ -240,5 +261,7 @@ document.addEventListener("DOMContentLoaded", () => {
     editBtn.onclick = () => {
       location.href = "login.html";
     };
+
+    logoutBtn.classList.add("hidden");
   }
 });
