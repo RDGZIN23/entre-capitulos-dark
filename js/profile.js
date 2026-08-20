@@ -1,4 +1,5 @@
 import { auth } from "./firebase-config.js";
+
 import {
   onAuthStateChanged,
   signOut
@@ -6,102 +7,334 @@ import {
 
 import {
   privateProfile,
+  publicAuthor,
+  authorBooks,
   favorites,
   progress,
   follows,
   followers,
-  removeSelfFollow,
-  publicBooks
+  isFollowing,
+  toggleFollow,
+  removeSelfFollow
 } from "./firebase-data.js";
 
-UI.shell("profile");
+const params = new URLSearchParams(location.search);
+const requestedId = params.get("id");
 
-function renderSocials(profile){
-  const box=UI.$("#profileSocials");
-  if(!box)return;
+UI.shell(requestedId ? "" : "profile");
 
-  const social=profile?.redesSociais||{};
+let currentUser = null;
+let targetId = requestedId || null;
+let ownProfile = false;
 
-  const items=[
-    ["Instagram",social.instagram],
-    ["TikTok",social.tiktok],
-    ["YouTube",social.youtube],
-    ["X / Twitter",social.twitter],
-    ["Facebook",social.facebook],
-    ["Site",social.site]
-  ]
-  .map(([label,url])=>[label,UI.safeHttps(url)])
-  .filter(([,url])=>url);
+function renderAvatar(name, photo) {
+  const avatar = UI.$("#avatar");
 
-  box.innerHTML=items.map(([label,url])=>`
-    <a
-      class="author-social-link"
-      href="${UI.esc(url)}"
-      target="_blank"
-      rel="noopener noreferrer"
-    >${UI.esc(label)}</a>
-  `).join("");
+  avatar.textContent = photo ? "" : UI.initials(name);
+
+  avatar.style.backgroundImage =
+    photo ? `url("${photo}")` : "";
 }
 
-onAuthStateChanged(auth,async u=>{
-  if(!u||u.isAnonymous){
+function renderMeta(profile) {
+  const box = UI.$("#profileMeta");
+
+  const items = [];
+
+  const idade = Number(profile?.idade || 0);
+  const localizacao =
+    profile?.localizacao ||
+    profile?.cidade ||
+    "";
+
+  const genero = profile?.genero || "";
+
+  if (idade > 0) {
+    items.push(`${idade} anos`);
+  }
+
+  if (localizacao) {
+    items.push(`📍 ${localizacao}`);
+  }
+
+  if (genero) {
+    items.push(genero);
+  }
+
+  box.innerHTML = items.map(item =>
+    `<span class="profile-meta-pill">${UI.esc(item)}</span>`
+  ).join("");
+}
+
+function renderSocials(profile) {
+  const box = UI.$("#profileSocials");
+
+  const social = profile?.redesSociais || {};
+
+  const networks = [
+    ["Instagram", social.instagram],
+    ["TikTok", social.tiktok],
+    ["YouTube", social.youtube],
+    ["X / Twitter", social.twitter],
+    ["Facebook", social.facebook],
+    ["Site", social.site]
+  ];
+
+  box.innerHTML = networks
+    .map(([label, url]) => [label, UI.safeHttps(url)])
+    .filter(([, url]) => url)
+    .map(([label, url]) => `
+      <a
+        class="btn profile-social-btn"
+        href="${UI.esc(url)}"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        ${UI.esc(label)}
+      </a>
+    `)
+    .join("");
+}
+
+async function loadOwnProfile(user) {
+
+  await removeSelfFollow(user.uid).catch(() => {});
+
+  const [
+    privateData,
+    publicData,
+    favs,
+    reading,
+    following,
+    followerList,
+    books
+  ] = await Promise.all([
+
+    privateProfile(user.uid),
+
+    publicAuthor(user.uid).catch(() => null),
+
+    favorites(user.uid).catch(() => []),
+
+    progress(user.uid).catch(() => []),
+
+    follows(user.uid).catch(() => []),
+
+    followers(user.uid).catch(() => []),
+
+    authorBooks(user.uid).catch(() => [])
+
+  ]);
+
+  const profile = {
+    ...(publicData || {}),
+    ...(privateData || {})
+  };
+
+  const name =
+    profile.nome ||
+    user.displayName ||
+    "Leitor";
+
+  const photo =
+    profile.fotoURL ||
+    profile.foto ||
+    user.photoURL ||
+    "";
+
+  renderAvatar(name, photo);
+
+  UI.$("#profileEyebrow").textContent = "MEU PERFIL";
+
+  UI.$("#name").textContent = name;
+
+  UI.$("#bio").textContent =
+    profile.biografia ||
+    "Você ainda não escreveu uma biografia.";
+
+  renderMeta(profile);
+  renderSocials(profile);
+
+  UI.$("#ownProfileActions").classList.remove("hidden");
+
+  UI.$("#visitorProfileActions").classList.add("hidden");
+
+  UI.$("#followerCount").textContent =
+    followerList.filter(x => x.usuarioId !== user.uid).length;
+
+  UI.$("#readCount").textContent = reading.length;
+
+  UI.$("#followCount").textContent =
+    following.filter(x => x.autorId !== user.uid).length;
+
+  UI.$("#booksCount").textContent = books.length;
+
+  UI.$("#profileSectionTitle").textContent =
+    "Minha biblioteca";
+
+  UI.$("#profileSectionSubtitle").textContent =
+    "Histórias que você salvou.";
+
+  UI.$("#profileSectionLink").href =
+    "biblioteca.html";
+
+  const savedBooks = favs
+    .map(f => ({
+      id: f.livroId,
+      title: f.titulo || "Livro",
+      author: f.autor || "Autor",
+      cover: f.capa || ""
+    }));
+
+  UI.$("#profileBooks").innerHTML =
+    savedBooks.length
+      ? savedBooks.slice(0, 6).map(UI.bookCard).join("")
+      : `<div class="empty-state">Sua biblioteca está vazia.</div>`;
+
+  UI.$("#logout").onclick = async () => {
+    await signOut(auth);
+    location.replace("login.html");
+  };
+}
+
+async function loadPublicProfile(id, user) {
+
+  const [author, books] = await Promise.all([
+    publicAuthor(id),
+    authorBooks(id).catch(() => [])
+  ]);
+
+  if (!author) {
+    throw new Error("Perfil não encontrado");
+  }
+
+  const name =
+    author.nome ||
+    "Autor";
+
+  const photo =
+    author.fotoURL ||
+    author.foto ||
+    "";
+
+  renderAvatar(name, photo);
+
+  UI.$("#profileEyebrow").textContent =
+    "PERFIL";
+
+  UI.$("#name").textContent = name;
+
+  UI.$("#bio").textContent =
+    author.biografia ||
+    "Este usuário ainda não escreveu uma biografia.";
+
+  renderMeta(author);
+  renderSocials(author);
+
+  UI.$("#booksCount").textContent = books.length;
+
+  UI.$("#profileSectionTitle").textContent =
+    "Histórias publicadas";
+
+  UI.$("#profileSectionSubtitle").textContent =
+    "Livros deste autor.";
+
+  UI.$("#profileSectionLink").classList.add("hidden");
+
+  UI.$("#profileBooks").innerHTML =
+    books.length
+      ? books.map(UI.bookCard).join("")
+      : `<div class="empty-state">Este autor ainda não publicou histórias.</div>`;
+
+  const followerList =
+    await followers(id).catch(() => []);
+
+  UI.$("#followerCount").textContent =
+    followerList.filter(x => x.usuarioId !== id).length;
+
+  const followingList =
+    await follows(id).catch(() => []);
+
+  UI.$("#followCount").textContent =
+    followingList.filter(x => x.autorId !== id).length;
+
+  UI.$("#readCount").textContent = "—";
+
+  if (user && user.uid === id) {
+    location.replace("perfil.html");
+    return;
+  }
+
+  UI.$("#ownProfileActions").classList.add("hidden");
+
+  UI.$("#visitorProfileActions").classList.remove("hidden");
+
+  const button = UI.$("#followProfileBtn");
+
+  let followed = false;
+
+  if (user && !user.isAnonymous) {
+    followed =
+      await isFollowing(user.uid, id).catch(() => false);
+  }
+
+  button.textContent =
+    followed ? "✓ Seguindo" : "+ Seguir";
+
+  button.onclick = async () => {
+
+    if (!user || user.isAnonymous) {
+      location.href = "login.html";
+      return;
+    }
+
+    const state =
+      await toggleFollow(user, id);
+
+    button.textContent =
+      state ? "✓ Seguindo" : "+ Seguir";
+  };
+}
+
+onAuthStateChanged(auth, async user => {
+
+  currentUser =
+    user && !user.isAnonymous
+      ? user
+      : null;
+
+  targetId =
+    requestedId ||
+    currentUser?.uid ||
+    null;
+
+  if (!targetId) {
     location.replace("login.html");
     return;
   }
 
-  try{
-    /* Remove um auto-follow antigo, caso exista */
-    await removeSelfFollow(u.uid).catch(()=>{});
+  ownProfile =
+    !!currentUser &&
+    currentUser.uid === targetId;
 
-    const [p,fs,ps,fol,followersList,books]=await Promise.all([
-      privateProfile(u.uid),
-      favorites(u.uid),
-      progress(u.uid),
-      follows(u.uid),
-      followers(u.uid).catch(()=>[]),
-      publicBooks()
-    ]);
+  try {
 
-    const name=p?.nome||u.displayName||"Leitor";
-    const photo=p?.fotoURL||p?.foto||u.photoURL||"";
+    if (ownProfile) {
+      await loadOwnProfile(currentUser);
+    } else {
+      await loadPublicProfile(targetId, currentUser);
+    }
 
-    const av=UI.$("#avatar");
-    av.textContent=photo?"":UI.initials(name);
-    av.style.backgroundImage=photo?`url("${photo}")`:"";
+  } catch (error) {
 
-    UI.$("#name").textContent=name;
-    UI.$("#bio").textContent=
-      p?.biografia||
-      "Este leitor ainda não escreveu uma biografia.";
+    console.error(error);
 
-    renderSocials(p);
+    UI.$("#name").textContent =
+      "Perfil indisponível";
 
-    UI.$("#followerCount").textContent=
-      followersList.filter(x=>x.usuarioId!==u.uid).length;
+    UI.$("#bio").textContent =
+      "Não foi possível carregar este perfil.";
 
-    UI.$("#readCount").textContent=ps.length;
-
-    UI.$("#followCount").textContent=
-      fol.filter(x=>x.autorId!==u.uid).length;
-
-    UI.$("#booksCount").textContent=
-      books.filter(b=>b.authorId===u.uid).length;
-
-    const bks=fs
-      .map(f=>books.find(b=>b.id===f.livroId))
-      .filter(Boolean);
-
-    UI.$("#profileBooks").innerHTML=bks.length
-      ? bks.slice(0,6).map(UI.bookCard).join("")
-      : `<div class="empty-state">Sua biblioteca está vazia.</div>`;
-
-  }catch(e){
-    console.error(e);
-    UI.toast("Não foi possível carregar o perfil.");
   }
-});
 
-UI.$("#logout").onclick=async()=>{
-  await signOut(auth);
-  location.replace("login.html");
-};
+});

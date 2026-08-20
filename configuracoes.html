@@ -8,6 +8,38 @@
 <section id="appearance" class="panel tab-panel"><div class="setting-row"><div><strong>Tema do site</strong><p>Escolha como o Entre Capítulos aparece para você.</p></div><div class="segmented"><button data-theme="dark">Escuro</button><button data-theme="light">Claro</button><button data-theme="system">Sistema</button></div></div><div class="setting-row"><div><strong>Tema padrão de leitura</strong><p>Escuro, claro ou sépia no leitor.</p></div><select id="readerThemeSetting" class="btn"><option value="dark">Escuro</option><option value="light">Claro</option><option value="sepia">Sépia</option></select></div><div class="setting-row"><div><strong>Reduzir animações</strong><p>Útil para uma interface mais estável.</p></div><input id="reduceMotion" type="checkbox"></div></section>
 <section id="profile" class="panel tab-panel hidden"><form id="profileForm" class="form-grid"><div class="field"><label>Nome</label><input id="settingsName" maxlength="80"></div><div class="field"><label>Biografia</label><textarea id="settingsBio" maxlength="300"></textarea></div><div class="field"><label>Foto</label><input id="settingsPhoto" type="file" accept="image/*"></div>
 
+<div class="field">
+  <label>Idade</label>
+  <input
+    id="settingsAge"
+    type="number"
+    min="1"
+    max="120"
+    placeholder="Ex.: 22"
+  >
+</div>
+
+<div class="field">
+  <label>Cidade / Estado</label>
+  <input
+    id="settingsLocation"
+    type="text"
+    maxlength="80"
+    placeholder="Ex.: Salvador, BA"
+  >
+</div>
+
+<div class="field">
+  <label>Gênero</label>
+  <select id="settingsGender">
+    <option value="">Prefiro não informar</option>
+    <option value="Masculino">Masculino</option>
+    <option value="Feminino">Feminino</option>
+    <option value="Não binário">Não binário</option>
+    <option value="Outro">Outro</option>
+  </select>
+</div>
+
 <div class="field" style="grid-column:1/-1">
   <h3 style="margin:8px 0 2px">Redes sociais</h3>
   <p class="muted small" style="margin:0">Opcional. As redes preenchidas poderão aparecer no seu perfil público.</p>
