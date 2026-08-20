@@ -218,8 +218,13 @@ function shelf({
   subtitle = "",
   items = [],
   emptyText = "",
-  badge
+  badge,
+  href = ""
 }) {
+
+  const moreHref =
+    href ||
+    `explorar.html?mode=${encodeURIComponent(id)}`;
 
   const cards = items.length
     ? items.map((book, index) =>
@@ -255,7 +260,7 @@ function shelf({
 
         </div>
 
-        <a class="shelf-more" href="explorar.html">
+        <a class="shelf-more" href="${moreHref}">
           Ver todos ›
         </a>
 
@@ -678,7 +683,8 @@ async function renderShelves() {
         subtitle:
           `Explore histórias de ${UI.esc(genre)}.`,
         items: genreBooks,
-        badge: genre
+        badge: genre,
+        href: `explorar.html?genre=${encodeURIComponent(genre)}`
       })
     );
 
