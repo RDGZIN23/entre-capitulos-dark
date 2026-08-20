@@ -65,6 +65,25 @@ const publishedToday = book => {
   );
 };
 
+const tagSummary = book => {
+  const tags = Array.isArray(book.tags)
+    ? book.tags
+        .map(tag => String(tag || "").trim())
+        .filter(Boolean)
+    : [];
+
+  const unique = [...new Set(tags)];
+
+  if (!unique.length && book.genre) {
+    unique.push(String(book.genre).trim());
+  }
+
+  return {
+    visible: unique.slice(0, 2),
+    remaining: Math.max(0, unique.length - 2)
+  };
+};
+
 const trendingScore = book => {
   const reads = Number(book.reads || 0);
   const rating = Number(book.rating || 0);
@@ -98,6 +117,7 @@ const trendingScore = book => {
 
 function shelfCard(book, badge = "") {
   const cover = UI.safeHttps(book.cover);
+  const tagInfo = tagSummary(book);
 
   const ratingText =
     Number(book.rating || 0) > 0
@@ -150,6 +170,24 @@ function shelfCard(book, badge = "") {
         <span class="shelf-book-author">
           ${UI.esc(book.author || "Autor")}
         </span>
+
+        ${
+          tagInfo.visible.length
+            ? `
+              <div class="shelf-book-tags">
+                <span>
+                  ${tagInfo.visible.map(UI.esc).join(", ")}
+                </span>
+
+                ${
+                  tagInfo.remaining
+                    ? `<b>+${tagInfo.remaining}</b>`
+                    : ""
+                }
+              </div>
+            `
+            : ""
+        }
 
         <div class="shelf-book-meta">
 
