@@ -6,7 +6,44 @@
 <div class="section-head"><div><h1>Configurações</h1><p>Personalize sua conta e o Entre Capítulos.</p></div></div>
 <div class="tabs"><button class="tab active" data-tab="appearance">Aparência</button><button class="tab" data-tab="profile">Perfil</button><button class="tab" data-tab="support">Apoio ao autor</button><button class="tab" data-tab="about">Sobre</button></div>
 <section id="appearance" class="panel tab-panel"><div class="setting-row"><div><strong>Tema do site</strong><p>Escolha como o Entre Capítulos aparece para você.</p></div><div class="segmented"><button data-theme="dark">Escuro</button><button data-theme="light">Claro</button><button data-theme="system">Sistema</button></div></div><div class="setting-row"><div><strong>Tema padrão de leitura</strong><p>Escuro, claro ou sépia no leitor.</p></div><select id="readerThemeSetting" class="btn"><option value="dark">Escuro</option><option value="light">Claro</option><option value="sepia">Sépia</option></select></div><div class="setting-row"><div><strong>Reduzir animações</strong><p>Útil para uma interface mais estável.</p></div><input id="reduceMotion" type="checkbox"></div></section>
-<section id="profile" class="panel tab-panel hidden"><form id="profileForm" class="form-grid"><div class="field"><label>Nome</label><input id="settingsName" maxlength="80"></div><div class="field"><label>Biografia</label><textarea id="settingsBio" maxlength="300"></textarea></div><div class="field"><label>Foto</label><input id="settingsPhoto" type="file" accept="image/*"></div><button class="btn btn-primary" type="submit">Salvar perfil</button></form></section>
+<section id="profile" class="panel tab-panel hidden"><form id="profileForm" class="form-grid"><div class="field"><label>Nome</label><input id="settingsName" maxlength="80"></div><div class="field"><label>Biografia</label><textarea id="settingsBio" maxlength="300"></textarea></div><div class="field"><label>Foto</label><input id="settingsPhoto" type="file" accept="image/*"></div>
+
+<div class="field" style="grid-column:1/-1">
+  <h3 style="margin:8px 0 2px">Redes sociais</h3>
+  <p class="muted small" style="margin:0">Opcional. As redes preenchidas poderão aparecer no seu perfil público.</p>
+</div>
+
+<div class="field">
+  <label>Instagram</label>
+  <input id="socialInstagram" type="url" placeholder="https://instagram.com/seuusuario">
+</div>
+
+<div class="field">
+  <label>TikTok</label>
+  <input id="socialTikTok" type="url" placeholder="https://tiktok.com/@seuusuario">
+</div>
+
+<div class="field">
+  <label>YouTube</label>
+  <input id="socialYouTube" type="url" placeholder="https://youtube.com/@seucanal">
+</div>
+
+<div class="field">
+  <label>X / Twitter</label>
+  <input id="socialTwitter" type="url" placeholder="https://x.com/seuusuario">
+</div>
+
+<div class="field">
+  <label>Facebook</label>
+  <input id="socialFacebook" type="url" placeholder="https://facebook.com/seuusuario">
+</div>
+
+<div class="field">
+  <label>Site / portfólio</label>
+  <input id="socialSite" type="url" placeholder="https://seusite.com">
+</div>
+
+<button class="btn btn-primary" type="submit">Salvar perfil</button></form></section>
 <section id="support" class="panel tab-panel hidden"><div class="notice" style="margin-bottom:14px">Opcional. Só preencha se quiser receber contribuições. A chave PIX ficará pública na sua página de autor.</div><form id="supportForm" class="form-grid"><div class="field"><label>Chave PIX</label><input id="pixKey" maxlength="180" placeholder="E-mail, telefone, CPF/CNPJ ou chave aleatória"></div><div class="field"><label>Nome do recebedor</label><input id="pixName" maxlength="100"></div><div class="field"><label>Link externo de apoio</label><input id="supportUrl" type="url" placeholder="https://..."></div><div class="field"><label>Mensagem para leitores</label><textarea id="supportMessage" maxlength="300"></textarea></div><button class="btn btn-primary" type="submit">Salvar formas de apoio</button></form></section>
 <section id="about" class="panel tab-panel hidden"><h2>Entre Capítulos</h2><p class="muted">Uma plataforma para leitores e autores publicarem, descobrirem e acompanharem histórias.</p><div class="setting-row"><div><strong>Área do autor para todos</strong><p>Qualquer conta pode publicar seus próprios livros e capítulos.</p></div><a class="btn" href="painel.html">Abrir</a></div><div class="setting-row"><div><strong>Privacidade</strong><p>Veja como os dados do site são usados.</p></div><a class="btn" href="privacidade.html">Ver</a></div><div class="setting-row"><div><strong>Sobre o site</strong></div><a class="btn" href="sobre.html">Ver</a></div></section>
 </main><footer id="siteFooter" class="site-footer"></footer></div></div><nav id="bottomNav" class="bottom-nav"></nav>
