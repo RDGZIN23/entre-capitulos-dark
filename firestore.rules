@@ -242,14 +242,17 @@ service cloud.firestore {
 
       allow list:
         if registered()
-        && resource.data.usuarioId
-          == request.auth.uid;
+        && (
+          resource.data.usuarioId == request.auth.uid
+          || resource.data.autorId == request.auth.uid
+        );
 
       allow create:
         if registered()
         && request.resource.data.usuarioId
           == request.auth.uid
         && request.resource.data.autorId is string
+        && request.resource.data.autorId != request.auth.uid
         && followId
           == request.auth.uid
           + "_"

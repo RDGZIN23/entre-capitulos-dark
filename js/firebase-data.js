@@ -41,15 +41,27 @@ export async function authorBooks(uid){const raw=await qdocs(query(collection(db
 export async function favorites(uid){return qdocs(query(collection(db,"favoritos"),where("usuarioId","==",uid)))}
 export async function progress(uid){return qdocs(query(collection(db,"progressoLeitura"),where("usuarioId","==",uid)))}
 export async function follows(uid){return qdocs(query(collection(db,"seguindoAutores"),where("usuarioId","==",uid)))}
+export async function followers(uid){return qdocs(query(collection(db,"seguindoAutores"),where("autorId","==",uid)))}
+export async function removeSelfFollow(uid){
+ const ref=doc(db,"seguindoAutores",`${uid}_${uid}`),s=await getDoc(ref);
+ if(s.exists())await deleteDoc(ref);
+}
 export async function isFavorite(uid,bookId){const s=await getDoc(doc(db,"favoritos",`${uid}_${bookId}`));return s.exists()}
 export async function toggleFavorite(user,book){
  const ref=doc(db,"favoritos",`${user.uid}_${book.id}`),s=await getDoc(ref);if(s.exists()){await deleteDoc(ref);return false}
  await setDoc(ref,{usuarioId:user.uid,livroId:book.id,titulo:book.title,autor:book.author,capa:book.cover||"",criadoEm:serverTimestamp()});return true;
 }
-export async function isFollowing(uid,authorId){const s=await getDoc(doc(db,"seguindoAutores",`${uid}_${authorId}`));return s.exists()}
+export async function isFollowing(uid,authorId){
+ if(!uid||!authorId||uid===authorId)return false;
+ const s=await getDoc(doc(db,"seguindoAutores",`${uid}_${authorId}`));
+ return s.exists();
+}
 export async function toggleFollow(user,authorId){
- const ref=doc(db,"seguindoAutores",`${user.uid}_${authorId}`),s=await getDoc(ref);if(s.exists()){await deleteDoc(ref);return false}
- await setDoc(ref,{usuarioId:user.uid,autorId:authorId,criadoEm:serverTimestamp()});return true;
+ if(!user||user.isAnonymous||!authorId||user.uid===authorId)return false;
+ const ref=doc(db,"seguindoAutores",`${user.uid}_${authorId}`),s=await getDoc(ref);
+ if(s.exists()){await deleteDoc(ref);return false}
+ await setDoc(ref,{usuarioId:user.uid,autorId:authorId,criadoEm:serverTimestamp()});
+ return true;
 }
 export async function saveProgress(user,ctx){
  if(!user||user.isAnonymous)return;
