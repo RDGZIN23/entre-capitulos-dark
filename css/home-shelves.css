@@ -1,0 +1,369 @@
+/* =========================================================
+   HOME — PRATELEIRAS DE LIVROS
+   ========================================================= */
+
+.home-shelves{
+  display:flex;
+  flex-direction:column;
+  gap:34px;
+  margin-top:30px;
+}
+
+.home-shelf{
+  min-width:0;
+}
+
+.shelf-head{
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:14px;
+  margin-bottom:14px;
+}
+
+.shelf-title-wrap{
+  min-width:0;
+}
+
+.shelf-title{
+  margin:0;
+  font-size:1.18rem;
+  font-weight:900;
+  letter-spacing:-.02em;
+}
+
+.shelf-subtitle{
+  margin:4px 0 0;
+  color:var(--muted);
+  font-size:.76rem;
+}
+
+.shelf-more{
+  flex-shrink:0;
+  color:#c4b5fd;
+  font-size:.76rem;
+  font-weight:850;
+  white-space:nowrap;
+}
+
+.shelf-scroll-wrap{
+  position:relative;
+  min-width:0;
+}
+
+.shelf-track{
+  display:grid;
+  grid-auto-flow:column;
+  grid-auto-columns:145px;
+  gap:14px;
+
+  overflow-x:auto;
+  overflow-y:hidden;
+
+  scroll-snap-type:x proximity;
+  scroll-behavior:smooth;
+  overscroll-behavior-inline:contain;
+
+  padding:3px 18px 10px 1px;
+
+  scrollbar-width:none;
+  -ms-overflow-style:none;
+}
+
+.shelf-track::-webkit-scrollbar{
+  display:none;
+}
+
+.shelf-book{
+  display:block;
+  min-width:0;
+  scroll-snap-align:start;
+  text-decoration:none;
+  color:var(--text);
+}
+
+.shelf-cover{
+  position:relative;
+  width:100%;
+  aspect-ratio:2/3;
+  overflow:hidden;
+
+  border-radius:14px;
+  border:1px solid var(--line);
+
+  background:
+    radial-gradient(
+      circle at 75% 15%,
+      rgba(255,255,255,.15),
+      transparent 24%
+    ),
+    linear-gradient(145deg,#372260,#171226 65%,#090b10);
+
+  box-shadow:0 8px 24px rgba(0,0,0,.16);
+
+  transition:
+    transform .2s ease,
+    box-shadow .2s ease;
+}
+
+.shelf-book:hover .shelf-cover{
+  transform:translateY(-3px);
+}
+
+.shelf-cover img{
+  width:100%;
+  height:100%;
+  display:block;
+  object-fit:cover;
+}
+
+.shelf-placeholder-title{
+  position:absolute;
+  left:10px;
+  right:10px;
+  bottom:22px;
+
+  color:#fff;
+  font-family:Georgia,serif;
+  font-size:.8rem;
+  line-height:1.05;
+  font-weight:900;
+
+  text-shadow:0 2px 14px rgba(0,0,0,.8);
+}
+
+.shelf-placeholder-author{
+  position:absolute;
+  left:10px;
+  right:10px;
+  bottom:8px;
+
+  color:#ddd;
+  font-size:.45rem;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+}
+
+.shelf-badge{
+  position:absolute;
+  top:7px;
+  left:7px;
+
+  max-width:calc(100% - 14px);
+
+  padding:4px 7px;
+  border-radius:999px;
+
+  background:rgba(10,12,20,.78);
+  backdrop-filter:blur(8px);
+
+  color:#fff;
+  font-size:.53rem;
+  font-weight:900;
+
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.shelf-book-info{
+  padding:8px 1px 0;
+  min-width:0;
+}
+
+.shelf-book-title{
+  display:block;
+
+  font-size:.78rem;
+  font-weight:850;
+  line-height:1.18;
+
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+.shelf-book-author{
+  display:block;
+  margin-top:3px;
+
+  color:var(--muted);
+  font-size:.65rem;
+
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+.shelf-book-meta{
+  display:flex;
+  align-items:center;
+  gap:8px;
+
+  margin-top:5px;
+
+  color:var(--muted);
+  font-size:.61rem;
+  font-weight:700;
+}
+
+.shelf-book-meta span{
+  white-space:nowrap;
+}
+
+.shelf-arrow{
+  position:absolute;
+  z-index:4;
+
+  right:2px;
+  top:42%;
+
+  width:34px;
+  height:34px;
+
+  display:grid;
+  place-items:center;
+
+  border:1px solid var(--line);
+  border-radius:50%;
+
+  background:color-mix(in srgb,var(--panel) 88%,transparent);
+  color:var(--text);
+
+  box-shadow:0 5px 18px rgba(0,0,0,.22);
+
+  cursor:pointer;
+  backdrop-filter:blur(10px);
+}
+
+.shelf-empty{
+  padding:20px;
+  border:1px dashed var(--line);
+  border-radius:16px;
+  color:var(--muted);
+  font-size:.8rem;
+}
+
+
+/* =========================================================
+   TABLET
+   ========================================================= */
+
+@media(max-width:860px){
+
+  .home-shelves{
+    gap:30px;
+  }
+
+  .shelf-track{
+    grid-auto-columns:20vw;
+    gap:11px;
+
+    /*
+      padding à direita proposital:
+      ajuda a mostrar que existe conteúdo depois.
+    */
+    padding-right:36px;
+  }
+
+  .shelf-arrow{
+    display:none;
+  }
+
+}
+
+
+/* =========================================================
+   CELULAR
+   3 CARDS COMPLETOS + COMEÇO DO 4º
+   ========================================================= */
+
+@media(max-width:580px){
+
+  .home-shelves{
+    margin-top:26px;
+    gap:29px;
+  }
+
+  .shelf-head{
+    margin-bottom:11px;
+  }
+
+  .shelf-title{
+    font-size:1rem;
+  }
+
+  .shelf-subtitle{
+    font-size:.67rem;
+  }
+
+  .shelf-more{
+    font-size:.68rem;
+  }
+
+  .shelf-track{
+    /*
+      Aproximadamente 3 cards completos dentro da tela
+      e uma parte do quarto visível.
+    */
+    grid-auto-columns:26vw;
+
+    gap:9px;
+
+    /*
+      O padding final faz o último card respirar
+      quando o usuário chega ao fim.
+    */
+    padding:
+      2px
+      34px
+      8px
+      0;
+
+    scroll-snap-type:x mandatory;
+  }
+
+  .shelf-cover{
+    border-radius:11px;
+  }
+
+  .shelf-book-info{
+    padding-top:6px;
+  }
+
+  .shelf-book-title{
+    font-size:.68rem;
+  }
+
+  .shelf-book-author{
+    font-size:.57rem;
+  }
+
+  .shelf-book-meta{
+    gap:6px;
+    margin-top:4px;
+    font-size:.55rem;
+  }
+
+  .shelf-badge{
+    top:5px;
+    left:5px;
+    padding:3px 5px;
+    font-size:.47rem;
+  }
+
+}
+
+
+/* =========================================================
+   TELAS MUITO PEQUENAS
+   ========================================================= */
+
+@media(max-width:360px){
+
+  .shelf-track{
+    grid-auto-columns:25.8vw;
+    gap:8px;
+  }
+
+}
