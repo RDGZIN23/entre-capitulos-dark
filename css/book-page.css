@@ -1,0 +1,78 @@
+/* PÁGINA DO LIVRO */
+
+.book-synopsis{
+  margin:28px 0 34px;
+  padding:0;
+}
+
+.book-synopsis-inner{
+  max-width:820px;
+}
+
+.book-synopsis h2{
+  margin:0 0 14px;
+  font-size:1.35rem;
+  font-weight:900;
+}
+
+.book-synopsis p{
+  margin:0;
+  color:var(--text);
+  font-size:1rem;
+  line-height:1.8;
+  white-space:pre-line;
+}
+
+/* força os 4 botões em 2 x 2 */
+#bookActions.detail-actions{
+  display:grid !important;
+  grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+  gap:10px !important;
+  grid-column:1 / -1 !important;
+  width:100% !important;
+  margin-top:18px !important;
+}
+
+#bookActions.detail-actions > *{
+  width:100% !important;
+  max-width:none !important;
+  min-width:0 !important;
+  margin:0 !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  text-align:center !important;
+}
+
+@media(max-width:580px){
+
+  #bookActions.detail-actions{
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+    gap:9px !important;
+    margin-top:16px !important;
+  }
+
+  #bookActions.detail-actions .btn{
+    min-height:48px;
+    padding:10px 7px;
+    border-radius:13px;
+    font-size:.78rem;
+    font-weight:850;
+    line-height:1.1;
+    white-space:normal;
+  }
+
+  .book-synopsis{
+    margin:30px 0 34px;
+  }
+
+  .book-synopsis h2{
+    font-size:1.25rem;
+  }
+
+  .book-synopsis p{
+    font-size:.94rem;
+    line-height:1.7;
+  }
+
+}
