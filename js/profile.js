@@ -131,7 +131,162 @@ function socialIcon(label) {
   return icons[label] || UI.esc(label);
 }
 
+
+function ensureProfilePeopleModal() {
+  let modal = document.getElementById("profilePeopleModal");
+
+  if (modal) return modal;
+
+  modal = document.createElement("div");
+  modal.id = "profilePeopleModal";
+  modal.className = "profile-people-modal";
+  modal.hidden = true;
+
+  modal.innerHTML = `
+    <div class="profile-people-backdrop" data-close-people></div>
+
+    <div class="profile-people-sheet" role="dialog" aria-modal="true">
+      <div class="profile-people-head">
+        <strong id="profilePeopleTitle">Usuários</strong>
+        <button type="button" class="profile-people-close" data-close-people aria-label="Fechar">×</button>
+      </div>
+
+      <div id="profilePeopleList" class="profile-people-list"></div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  modal.querySelectorAll("[data-close-people]").forEach(el => {
+    el.addEventListener("click", () => {
+      modal.hidden = true;
+      document.body.classList.remove("profile-people-open");
+    });
+  });
+
+  return modal;
+}
+
+async function openProfilePeople(kind, uid) {
+  if (!uid) return;
+
+  const modal = ensureProfilePeopleModal();
+  const title = modal.querySelector("#profilePeopleTitle");
+  const list = modal.querySelector("#profilePeopleList");
+
+  title.textContent = kind === "followers" ? "Seguidores" : "Seguindo";
+  list.innerHTML = `<div class="profile-people-state">Carregando...</div>`;
+
+  modal.hidden = false;
+  document.body.classList.add("profile-people-open");
+
+  try {
+    const relations =
+      kind === "followers"
+        ? await followers(uid)
+        : await follows(uid);
+
+    const ids = [...new Set(
+      relations
+        .map(item =>
+          kind === "followers"
+            ? item.usuarioId
+            : item.autorId
+        )
+        .filter(Boolean)
+        .filter(id => id !== uid)
+    )];
+
+    if (!ids.length) {
+      list.innerHTML = `
+        <div class="profile-people-state">
+          ${
+            kind === "followers"
+              ? "Ainda não há seguidores."
+              : "Este perfil ainda não segue ninguém."
+          }
+        </div>
+      `;
+      return;
+    }
+
+    const profiles = await Promise.all(
+      ids.map(id => publicAuthor(id).catch(() => null))
+    );
+
+    list.innerHTML = ids.map((id, index) => {
+      const profile = profiles[index] || {};
+      const name =
+        profile.nome ||
+        profile.name ||
+        profile.displayName ||
+        "Usuário";
+
+      const photo =
+        profile.fotoURL ||
+        profile.photoURL ||
+        profile.avatar ||
+        "";
+
+      const avatar = photo
+        ? `<img src="${UI.esc(photo)}" alt="">`
+        : `<span>${UI.esc(name.charAt(0).toUpperCase())}</span>`;
+
+      return `
+        <a class="profile-person-row"
+           href="perfil.html?id=${encodeURIComponent(id)}">
+          <div class="profile-person-avatar">
+            ${avatar}
+          </div>
+
+          <div class="profile-person-info">
+            <strong>${UI.esc(name)}</strong>
+            <span>Ver perfil</span>
+          </div>
+
+          <span class="profile-person-arrow">›</span>
+        </a>
+      `;
+    }).join("");
+
+  } catch (error) {
+    console.error(error);
+    list.innerHTML = `
+      <div class="profile-people-state">
+        Não foi possível carregar esta lista.
+      </div>
+    `;
+  }
+}
+
+function wireProfilePeopleStats(uid) {
+  const follower = document.getElementById("followerCount")?.closest(".profile-stat");
+  const following = document.getElementById("followCount")?.closest(".profile-stat");
+
+  const activate = (element, kind) => {
+    if (!element) return;
+
+    element.classList.add("profile-stat-clickable");
+    element.setAttribute("role", "button");
+    element.setAttribute("tabindex", "0");
+
+    element.onclick = () => openProfilePeople(kind, uid);
+
+    element.onkeydown = event => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        openProfilePeople(kind, uid);
+      }
+    };
+  };
+
+  activate(follower, "followers");
+  activate(following, "following");
+}
+
+
 async function loadOwnProfile(user) {
+  wireProfilePeopleStats(user.uid);
 
   await removeSelfFollow(user.uid).catch(() => {});
 
@@ -233,6 +388,7 @@ async function loadOwnProfile(user) {
 }
 
 async function loadPublicProfile(id, user) {
+  wireProfilePeopleStats(id);
 
   const [author, books] = await Promise.all([
     publicAuthor(id),
