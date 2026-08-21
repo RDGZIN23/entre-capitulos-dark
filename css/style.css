@@ -767,3 +767,98 @@ button{cursor:pointer} img{max-width:100%;display:block}.hidden{display:none!imp
     padding-bottom:24px;
   }
 }
+
+
+/* =========================================
+   PERFIL - MODAL DE LIVROS
+   ========================================= */
+
+.profile-books-modal-list{
+  max-height:calc(72vh - 75px);
+  overflow-y:auto;
+  padding:10px;
+}
+
+.profile-book-modal-row{
+  display:flex;
+  align-items:center;
+  gap:14px;
+  padding:10px;
+  border-radius:17px;
+  color:inherit;
+  text-decoration:none;
+}
+
+.profile-book-modal-row:hover,
+.profile-book-modal-row:active{
+  background:rgba(255,255,255,.05);
+}
+
+.profile-book-modal-cover{
+  width:58px;
+  height:82px;
+  min-width:58px;
+  overflow:hidden;
+  border-radius:10px;
+  background:rgba(168,85,247,.12);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.profile-book-modal-cover img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
+
+.profile-book-placeholder{
+  font-size:1.55rem;
+}
+
+.profile-book-modal-info{
+  flex:1;
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  gap:5px;
+}
+
+.profile-book-modal-info strong{
+  font-size:.96rem;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.profile-book-modal-info span{
+  font-size:.78rem;
+  opacity:.58;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.profile-private-icon{
+  font-size:2rem;
+  margin-bottom:10px;
+}
+
+.profile-people-state strong,
+.profile-people-state span{
+  display:block;
+}
+
+.profile-people-state span{
+  margin-top:7px;
+  font-size:.82rem;
+  line-height:1.45;
+  opacity:.65;
+}
+
+@media(max-width:520px){
+  .profile-books-modal-list{
+    max-height:calc(76vh - 75px);
+    padding-bottom:24px;
+  }
+}

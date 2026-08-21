@@ -285,6 +285,176 @@ function wireProfilePeopleStats(uid) {
 }
 
 
+
+function ensureProfileBooksModal() {
+  let modal = document.getElementById("profileBooksModal");
+
+  if (modal) return modal;
+
+  modal = document.createElement("div");
+  modal.id = "profileBooksModal";
+  modal.className = "profile-people-modal";
+  modal.hidden = true;
+
+  modal.innerHTML = `
+    <div class="profile-people-backdrop" data-close-books></div>
+
+    <div class="profile-people-sheet" role="dialog" aria-modal="true">
+      <div class="profile-people-head">
+        <strong id="profileBooksModalTitle">Livros</strong>
+        <button
+          type="button"
+          class="profile-people-close"
+          data-close-books
+          aria-label="Fechar"
+        >×</button>
+      </div>
+
+      <div id="profileBooksModalList" class="profile-books-modal-list"></div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  modal.querySelectorAll("[data-close-books]").forEach(el => {
+    el.addEventListener("click", () => {
+      modal.hidden = true;
+      document.body.classList.remove("profile-people-open");
+    });
+  });
+
+  return modal;
+}
+
+function openProfileBooks(kind, books = [], isPrivate = false) {
+  const modal = ensureProfileBooksModal();
+  const title = modal.querySelector("#profileBooksModalTitle");
+  const list = modal.querySelector("#profileBooksModalList");
+
+  title.textContent =
+    kind === "reading"
+      ? "Livros lidos"
+      : "Livros publicados";
+
+  modal.hidden = false;
+  document.body.classList.add("profile-people-open");
+
+  if (isPrivate) {
+    list.innerHTML = `
+      <div class="profile-people-state">
+        <div class="profile-private-icon">🔒</div>
+        <strong>Esta lista é privada</strong>
+        <span>O dono deste perfil escolheu não mostrar seus livros lidos.</span>
+      </div>
+    `;
+    return;
+  }
+
+  if (!books.length) {
+    list.innerHTML = `
+      <div class="profile-people-state">
+        ${
+          kind === "reading"
+            ? "Nenhum livro lido ainda."
+            : "Nenhum livro publicado ainda."
+        }
+      </div>
+    `;
+    return;
+  }
+
+  list.innerHTML = books.map(book => {
+    const id =
+      book.livroId ||
+      book.bookId ||
+      book.id ||
+      "";
+
+    const title =
+      book.titulo ||
+      book.title ||
+      "Livro";
+
+    const cover =
+      book.capa ||
+      book.cover ||
+      "";
+
+    const detail =
+      kind === "reading"
+        ? (
+            book.ultimoCapituloTitulo
+              ? `Último capítulo: ${book.ultimoCapituloTitulo}`
+              : "Continuar leitura"
+          )
+        : (
+            book.genero ||
+            book.genre ||
+            "Ver história"
+          );
+
+    const coverHtml = cover
+      ? `<img src="${UI.esc(cover)}" alt="">`
+      : `<span class="profile-book-placeholder">📖</span>`;
+
+    return `
+      <a
+        class="profile-book-modal-row"
+        href="${id ? `livro.html?id=${encodeURIComponent(id)}` : "#"}"
+      >
+        <div class="profile-book-modal-cover">
+          ${coverHtml}
+        </div>
+
+        <div class="profile-book-modal-info">
+          <strong>${UI.esc(title)}</strong>
+          <span>${UI.esc(detail)}</span>
+        </div>
+
+        <span class="profile-person-arrow">›</span>
+      </a>
+    `;
+  }).join("");
+}
+
+function wireProfileBookStats(readingBooks, publishedBooks, canViewReading) {
+  const readingStat =
+    document.getElementById("readCount")?.closest(".profile-stat");
+
+  const publishedStat =
+    document.getElementById("booksCount")?.closest(".profile-stat");
+
+  const activate = (element, handler) => {
+    if (!element) return;
+
+    element.classList.add("profile-stat-clickable");
+    element.setAttribute("role", "button");
+    element.setAttribute("tabindex", "0");
+
+    element.onclick = handler;
+
+    element.onkeydown = event => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        handler();
+      }
+    };
+  };
+
+  activate(readingStat, () => {
+    openProfileBooks(
+      "reading",
+      canViewReading ? readingBooks : [],
+      !canViewReading
+    );
+  });
+
+  activate(publishedStat, () => {
+    openProfileBooks("published", publishedBooks, false);
+  });
+}
+
+
 async function loadOwnProfile(user) {
   wireProfilePeopleStats(user.uid);
 
@@ -359,6 +529,8 @@ async function loadOwnProfile(user) {
 
   UI.$("#booksCount").textContent = books.length;
 
+  wireProfileBookStats(reading, books, true);
+
   UI.$("#profileSectionTitle").textContent =
     "Minha biblioteca";
 
@@ -423,6 +595,8 @@ async function loadPublicProfile(id, user) {
   renderSocials(author);
 
   UI.$("#booksCount").textContent = books.length;
+
+  wireProfileBookStats([], books, false);
 
   UI.$("#profileSectionTitle").textContent =
     "Histórias publicadas";
