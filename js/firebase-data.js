@@ -67,7 +67,7 @@ export async function saveProgress(user,ctx){
  if(!user||user.isAnonymous)return;
  await setDoc(doc(db,"progressoLeitura",`${user.uid}_${ctx.book.id}`),{usuarioId:user.uid,livroId:ctx.book.id,livroTitulo:ctx.book.title,capa:ctx.book.cover||"",ultimoCapituloId:ctx.chapter.id,ultimoCapituloNumero:ctx.chapter.number,ultimoCapituloTitulo:ctx.chapter.title,capitulosLidos:arrayUnion(ctx.chapter.id),atualizadoEm:serverTimestamp()},{merge:true});
 }
-export async function ensureViewer(){
+export async function ensureViewer(){await auth.authStateReady();
  if(auth.currentUser)return auth.currentUser;try{const c=await signInAnonymously(auth);return c.user}catch{return null}
 }
 export async function registerView(ctx){
