@@ -42,3 +42,61 @@ onAuthStateChanged(auth,async u=>{if(!u||u.isAnonymous){UI.$("#profile").innerHT
  UI.$("#profileForm").onsubmit=async e=>{e.preventDefault();const name=UI.$("#settingsName").value.trim(),bio=UI.$("#settingsBio").value.trim();const idadeRaw=UI.$("#settingsAge").value.trim();const idade=idadeRaw?Number(idadeRaw):null;const localizacao=UI.$("#settingsLocation").value.trim();const genero=UI.$("#settingsGender").value;if(idade!==null&&(!Number.isInteger(idade)||idade<1||idade>120))return UI.toast("Digite uma idade válida.");const socialLinks={instagram:socialLink(UI.$("#socialInstagram").value,"instagram"),tiktok:socialLink(UI.$("#socialTikTok").value,"tiktok"),youtube:socialLink(UI.$("#socialYouTube").value,"youtube"),twitter:socialLink(UI.$("#socialTwitter").value,"twitter"),facebook:socialLink(UI.$("#socialFacebook").value,"facebook"),site:UI.$("#socialSite").value.trim()};if(socialLinks.site&&!UI.safeHttps(socialLinks.site))return UI.toast("Use um link HTTPS válido no site / portfólio.");let photo=p.fotoURL||u.photoURL||"",file=UI.$("#settingsPhoto").files[0];try{if(file){UI.toast("Enviando foto...");photo=await uploadImage(file,{kind:"avatar"})}await setDoc(doc(db,"usuarios",u.uid),{uid:u.uid,nome:name,biografia:bio,fotoURL:photo,email:u.email||"",idade:idade,localizacao:localizacao,genero:genero,idade:idade,localizacao:localizacao,genero:genero,redesSociais:socialLinks,atualizadoEm:serverTimestamp()},{merge:true});await setDoc(doc(db,"autores",u.uid),{uid:u.uid,nome:name,biografia:bio,fotoURL:photo,redesSociais:socialLinks,atualizadoEm:serverTimestamp()},{merge:true});await updateProfile(u,{displayName:name,photoURL:photo||null});UI.toast("Perfil atualizado")}catch(err){console.error(err);UI.toast(err.message||"Não foi possível salvar")}};
  UI.$("#supportForm").onsubmit=async e=>{e.preventDefault();const url=UI.$("#supportUrl").value.trim();if(url&&!UI.safeHttps(url))return UI.toast("Use um link HTTPS válido.");await setDoc(doc(db,"autores",u.uid),{uid:u.uid,nome:UI.$("#settingsName").value.trim()||p.nome||u.displayName||"Autor",biografia:UI.$("#settingsBio").value.trim()||p.biografia||"",fotoURL:p.fotoURL||u.photoURL||"",pixChave:UI.$("#pixKey").value.trim(),pixNome:UI.$("#pixName").value.trim(),apoioUrl:url,apoioMensagem:UI.$("#supportMessage").value.trim(),atualizadoEm:serverTimestamp()},{merge:true});UI.toast("Formas de apoio salvas")};
 });
+
+/* =========================================
+   PRIVACIDADE DO PERFIL
+   ========================================= */
+
+onAuthStateChanged(auth, async user => {
+  if (!user || user.isAnonymous) return;
+
+  try {
+    const snap = await getDoc(doc(db, "autores", user.uid));
+    const profile = snap.exists() ? snap.data() : {};
+
+    const followers = UI.$("#privacyFollowers");
+    const following = UI.$("#privacyFollowing");
+    const reading = UI.$("#privacyReading");
+
+    if (followers) {
+      followers.value = profile.privacidadeSeguidores || "publico";
+    }
+
+    if (following) {
+      following.value = profile.privacidadeSeguindo || "publico";
+    }
+
+    if (reading) {
+      reading.value = profile.privacidadeLeituras || "privado";
+    }
+  } catch (error) {
+    console.error("Erro ao carregar privacidade:", error);
+  }
+});
+
+UI.$("#profileForm")?.addEventListener("submit", async () => {
+  const user = auth.currentUser;
+
+  if (!user || user.isAnonymous) return;
+
+  try {
+    await setDoc(
+      doc(db, "autores", user.uid),
+      {
+        privacidadeSeguidores:
+          UI.$("#privacyFollowers")?.value || "publico",
+
+        privacidadeSeguindo:
+          UI.$("#privacyFollowing")?.value || "publico",
+
+        privacidadeLeituras:
+          UI.$("#privacyReading")?.value || "privado",
+
+        atualizadoEm: serverTimestamp()
+      },
+      { merge: true }
+    );
+  } catch (error) {
+    console.error("Erro ao salvar privacidade:", error);
+  }
+});

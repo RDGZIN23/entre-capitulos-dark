@@ -167,7 +167,7 @@ function ensureProfilePeopleModal() {
   return modal;
 }
 
-async function openProfilePeople(kind, uid) {
+async function openProfilePeople(kind, uid, isPrivate = false) {
   if (!uid) return;
 
   const modal = ensureProfilePeopleModal();
@@ -179,6 +179,17 @@ async function openProfilePeople(kind, uid) {
 
   modal.hidden = false;
   document.body.classList.add("profile-people-open");
+
+  if (isPrivate) {
+    list.innerHTML = `
+      <div class="profile-people-state">
+        <div class="profile-private-icon">🔒</div>
+        <strong>Esta lista é privada</strong>
+        <span>O dono deste perfil escolheu não mostrar esta lista.</span>
+      </div>
+    `;
+    return;
+  }
 
   try {
     const relations =
@@ -259,7 +270,7 @@ async function openProfilePeople(kind, uid) {
   }
 }
 
-function wireProfilePeopleStats(uid) {
+function wireProfilePeopleStats(uid, privacy = {}) {
   const follower = document.getElementById("followerCount")?.closest(".profile-stat");
   const following = document.getElementById("followCount")?.closest(".profile-stat");
 
@@ -270,12 +281,24 @@ function wireProfilePeopleStats(uid) {
     element.setAttribute("role", "button");
     element.setAttribute("tabindex", "0");
 
-    element.onclick = () => openProfilePeople(kind, uid);
+    element.onclick = () => openProfilePeople(
+      kind,
+      uid,
+      kind === "followers"
+        ? privacy.followersPrivate === true
+        : privacy.followingPrivate === true
+    );
 
     element.onkeydown = event => {
       if (event.key === "Enter" || event.key === " ") {
         event.preventDefault();
-        openProfilePeople(kind, uid);
+        openProfilePeople(
+          kind,
+          uid,
+          kind === "followers"
+            ? privacy.followersPrivate === true
+            : privacy.followingPrivate === true
+        );
       }
     };
   };
@@ -560,7 +583,6 @@ async function loadOwnProfile(user) {
 }
 
 async function loadPublicProfile(id, user) {
-  wireProfilePeopleStats(id);
 
   const [author, books] = await Promise.all([
     publicAuthor(id),
@@ -570,6 +592,18 @@ async function loadPublicProfile(id, user) {
   if (!author) {
     throw new Error("Perfil não encontrado");
   }
+
+  wireProfilePeopleStats(id, {
+    followersPrivate: author.privacidadeSeguidores === "privado",
+    followingPrivate: author.privacidadeSeguindo === "privado"
+  });
+
+  const readingIsPublic =
+    author.privacidadeLeituras === "publico";
+
+  const publicReading = readingIsPublic
+    ? await progress(id).catch(() => [])
+    : [];
 
   const name =
     author.nome ||
@@ -596,7 +630,11 @@ async function loadPublicProfile(id, user) {
 
   UI.$("#booksCount").textContent = books.length;
 
-  wireProfileBookStats([], books, false);
+  wireProfileBookStats(
+    publicReading,
+    books,
+    readingIsPublic
+  );
 
   UI.$("#profileSectionTitle").textContent =
     "Histórias publicadas";
@@ -623,7 +661,8 @@ async function loadPublicProfile(id, user) {
   UI.$("#followCount").textContent =
     followingList.filter(x => x.autorId !== id).length;
 
-  UI.$("#readCount").textContent = "—";
+  UI.$("#readCount").textContent =
+    readingIsPublic ? publicReading.length : "—";
 
   if (user && user.uid === id) {
     location.replace("perfil.html");
