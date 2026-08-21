@@ -202,9 +202,15 @@ service cloud.firestore {
 
     match /progressoLeitura/{progressId} {
       allow read:
-        if registered()
-        && resource.data.usuarioId
-          == request.auth.uid;
+        if (
+          registered()
+          && resource.data.usuarioId == request.auth.uid
+        )
+        || (
+          get(
+            /databases/$(database)/documents/autores/$(resource.data.usuarioId)
+          ).data.privacidadeLeituras == "publico"
+        );
 
       allow create:
         if registered()
