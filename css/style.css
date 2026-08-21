@@ -551,3 +551,24 @@ button{cursor:pointer} img{max-width:100%;display:block}.hidden{display:none!imp
   font-size:24px;
   font-weight:900;
 }
+
+
+/* PERFIL SOCIAL - LOGOS REAIS DAS REDES */
+.profile-social-buttons a::before{
+  content:none !important;
+  display:none !important;
+}
+
+.profile-social-buttons a i{
+  font-size:23px;
+  line-height:1;
+}
+
+.profile-social-buttons a[href*="instagram.com"] i{
+  font-size:25px;
+}
+
+.profile-social-buttons a[href*="youtube.com"] i,
+.profile-social-buttons a[href*="youtu.be"] i{
+  font-size:22px;
+}

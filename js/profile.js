@@ -90,10 +90,23 @@ function renderSocials(profile) {
         target="_blank"
         rel="noopener noreferrer"
       >
-        ${UI.esc(label)}
+        ${socialIcon(label)}
       </a>
     `)
     .join("");
+}
+
+
+function socialIcon(label) {
+  const icons = {
+    "Instagram": '<i class="fa-brands fa-instagram" aria-hidden="true"></i>',
+    "TikTok": '<i class="fa-brands fa-tiktok" aria-hidden="true"></i>',
+    "YouTube": '<i class="fa-brands fa-youtube" aria-hidden="true"></i>',
+    "X / Twitter": '<i class="fa-brands fa-x-twitter" aria-hidden="true"></i>',
+    "Facebook": '<i class="fa-brands fa-facebook-f" aria-hidden="true"></i>',
+    "Site": '<i class="fa-solid fa-globe" aria-hidden="true"></i>'
+  };
+  return icons[label] || UI.esc(label);
 }
 
 async function loadOwnProfile(user) {
