@@ -99,13 +99,35 @@ function renderSocials(profile) {
 
 function socialIcon(label) {
   const icons = {
-    "Instagram": '<i class="fa-brands fa-instagram" aria-hidden="true"></i>',
-    "TikTok": '<i class="fa-brands fa-tiktok" aria-hidden="true"></i>',
-    "YouTube": '<i class="fa-brands fa-youtube" aria-hidden="true"></i>',
-    "X / Twitter": '<i class="fa-brands fa-x-twitter" aria-hidden="true"></i>',
-    "Facebook": '<i class="fa-brands fa-facebook-f" aria-hidden="true"></i>',
-    "Site": '<i class="fa-solid fa-globe" aria-hidden="true"></i>'
+    "Instagram": `<svg viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="3" y="3" width="18" height="18" rx="5" fill="none" stroke="currentColor" stroke-width="2"/>
+      <circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"/>
+      <circle cx="17.5" cy="6.5" r="1.2" fill="currentColor"/>
+    </svg>`,
+
+    "TikTok": `<svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M14 4v10.2a4.3 4.3 0 1 1-3.2-4.15v2.8a1.8 1.8 0 1 0 .7 1.35V4h2.5zm0 0c.5 2.1 1.7 3.5 4 4v2.7c-1.7-.25-3-1-4-2V4z" fill="currentColor"/>
+    </svg>`,
+
+    "YouTube": `<svg viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="2.5" y="5.5" width="19" height="13" rx="4" fill="currentColor"/>
+      <path d="M10 9l6 3-6 3z" fill="var(--surface,#111827)"/>
+    </svg>`,
+
+    "X / Twitter": `<svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M5 4l14 16M19 4L5 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+    </svg>`,
+
+    "Facebook": `<svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M14 8h4V4h-4c-3 0-5 2-5 5v3H6v4h3v6h4v-6h4l1-4h-5V9c0-.7.3-1 1-1z" fill="currentColor"/>
+    </svg>`,
+
+    "Site": `<svg viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/>
+      <path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18" fill="none" stroke="currentColor" stroke-width="1.7"/>
+    </svg>`
   };
+
   return icons[label] || UI.esc(label);
 }
 

@@ -572,3 +572,31 @@ button{cursor:pointer} img{max-width:100%;display:block}.hidden{display:none!imp
 .profile-social-buttons a[href*="youtu.be"] i{
   font-size:22px;
 }
+
+
+/* PERFIL SOCIAL - ICONES SVG LOCAIS */
+.profile-social-buttons a i{
+  display:none !important;
+}
+
+.profile-social-buttons a svg{
+  display:block;
+  width:24px;
+  height:24px;
+}
+
+.profile-social-buttons a[href*="instagram.com"] svg{
+  width:25px;
+  height:25px;
+}
+
+.profile-social-buttons a[href*="tiktok.com"] svg{
+  width:25px;
+  height:25px;
+}
+
+.profile-social-buttons a[href*="youtube.com"] svg,
+.profile-social-buttons a[href*="youtu.be"] svg{
+  width:26px;
+  height:26px;
+}
