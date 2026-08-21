@@ -470,3 +470,84 @@ button{cursor:pointer} img{max-width:100%;display:block}.hidden{display:none!imp
     font-size:.7rem;
   }
 }
+
+/* PERFIL SOCIAL - ESTATÍSTICAS 2x2 */
+.profile-stats{
+  grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+  gap:10px !important;
+  padding:0 !important;
+  margin-top:24px !important;
+  border:0 !important;
+}
+
+.profile-stat{
+  padding:16px 10px !important;
+  border:1px solid rgba(148,163,184,.16) !important;
+  border-radius:18px !important;
+  background:rgba(255,255,255,.025) !important;
+  transition:transform .18s ease, border-color .18s ease, background .18s ease;
+}
+
+.profile-stat + .profile-stat{
+  border-left:1px solid rgba(148,163,184,.16) !important;
+}
+
+.profile-stat strong{
+  font-size:1.65rem !important;
+  font-weight:800;
+  margin-bottom:5px;
+}
+
+.profile-stat .small{
+  font-size:.82rem !important;
+}
+
+@media (max-width:520px){
+  .profile-stats{
+    width:100% !important;
+    margin-left:0 !important;
+    margin-right:0 !important;
+  }
+}
+
+/* PERFIL SOCIAL - ÍCONES DAS REDES */
+.profile-social-buttons a{
+  position:relative;
+  font-size:0 !important;
+}
+
+.profile-social-buttons a::before{
+  content:"↗";
+  font-size:21px;
+  font-weight:800;
+  line-height:1;
+}
+
+.profile-social-buttons a[href*="instagram.com"]::before{
+  content:"◎";
+  font-size:27px;
+}
+
+.profile-social-buttons a[href*="tiktok.com"]::before{
+  content:"♪";
+  font-size:24px;
+}
+
+.profile-social-buttons a[href*="youtube.com"]::before,
+.profile-social-buttons a[href*="youtu.be"]::before{
+  content:"▶";
+  font-size:20px;
+}
+
+.profile-social-buttons a[href*="x.com"]::before,
+.profile-social-buttons a[href*="twitter.com"]::before{
+  content:"𝕏";
+  font-size:22px;
+}
+
+.profile-social-buttons a[href*="facebook.com"]::before{
+  content:"f";
+  font-family:Arial,sans-serif;
+  font-size:24px;
+  font-weight:900;
+}

@@ -50,15 +50,15 @@ function renderMeta(profile) {
   const genero = profile?.genero || "";
 
   if (idade > 0) {
-    items.push(`${idade} anos`);
+    items.push(`Idade: ${idade} anos`);
   }
 
   if (localizacao) {
-    items.push(`📍 ${localizacao}`);
+    items.push(`Cidade/Estado: ${localizacao.replace(",", " /")}`);
   }
 
   if (genero) {
-    items.push(genero);
+    items.push(`Gênero: ${genero}`);
   }
 
   box.innerHTML = items.map(item =>
