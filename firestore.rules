@@ -241,11 +241,7 @@ service cloud.firestore {
         && followId.matches(request.auth.uid + '_.*');
 
       allow list:
-        if registered()
-        && (
-          resource.data.usuarioId == request.auth.uid
-          || resource.data.autorId == request.auth.uid
-        );
+    if true;
 
       allow create:
         if registered()
