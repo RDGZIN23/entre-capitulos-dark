@@ -42,9 +42,42 @@ export async function favorites(uid){return qdocs(query(collection(db,"favoritos
 export async function progress(uid){return qdocs(query(collection(db,"progressoLeitura"),where("usuarioId","==",uid)))}
 export async function follows(uid){return qdocs(query(collection(db,"seguindoAutores"),where("usuarioId","==",uid)))}
 export async function followers(uid){return qdocs(query(collection(db,"seguindoAutores"),where("autorId","==",uid)))}
+export async function publicFollows(uid){
+ try{const mirror=await qdocs(collection(db,"usuarios",uid,"seguindo"));if(mirror.length)return mirror}catch{}
+ return follows(uid).catch(()=>[]);
+}
+export async function publicFollowers(uid){
+ try{const mirror=await qdocs(collection(db,"autores",uid,"seguidores"));if(mirror.length)return mirror}catch{}
+ return followers(uid).catch(()=>[]);
+}
+export async function migrateSocialGraph(uid){
+ if(!uid)return {following:0,followers:0};
+ const [outgoing,incoming]=await Promise.all([follows(uid).catch(()=>[]),followers(uid).catch(()=>[])]);
+ const tasks=[];
+ for(const rel of outgoing){
+  if(!rel.autorId||rel.autorId===uid)continue;
+  const data={usuarioId:uid,autorId:rel.autorId,criadoEm:rel.criadoEm||serverTimestamp()};
+  tasks.push(setDoc(doc(db,"usuarios",uid,"seguindo",rel.autorId),data,{merge:true}));
+  tasks.push(setDoc(doc(db,"autores",rel.autorId,"seguidores",uid),data,{merge:true}));
+ }
+ for(const rel of incoming){
+  if(!rel.usuarioId||rel.usuarioId===uid)continue;
+  const data={usuarioId:rel.usuarioId,autorId:uid,criadoEm:rel.criadoEm||serverTimestamp()};
+  tasks.push(setDoc(doc(db,"autores",uid,"seguidores",rel.usuarioId),data,{merge:true}));
+ }
+ await Promise.allSettled(tasks);
+ const following=outgoing.filter(x=>x.autorId&&x.autorId!==uid).length;
+ const followersCount=incoming.filter(x=>x.usuarioId&&x.usuarioId!==uid).length;
+ await setDoc(doc(db,"autores",uid),{seguindoCount:following,seguidoresCount:followersCount,atualizadoEm:serverTimestamp()},{merge:true}).catch(()=>{});
+ return {following,followers:followersCount};
+}
 export async function removeSelfFollow(uid){
- const ref=doc(db,"seguindoAutores",`${uid}_${uid}`),s=await getDoc(ref);
- if(s.exists())await deleteDoc(ref);
+ const refs=[
+  doc(db,"seguindoAutores",`${uid}_${uid}`),
+  doc(db,"usuarios",uid,"seguindo",uid),
+  doc(db,"autores",uid,"seguidores",uid)
+ ];
+ await Promise.all(refs.map(async ref=>{const snap=await getDoc(ref).catch(()=>null);if(snap?.exists?.())await deleteDoc(ref).catch(()=>{})}));
 }
 export async function isFavorite(uid,bookId){const s=await getDoc(doc(db,"favoritos",`${uid}_${bookId}`));return s.exists()}
 export async function toggleFavorite(user,book){
@@ -58,9 +91,20 @@ export async function isFollowing(uid,authorId){
 }
 export async function toggleFollow(user,authorId){
  if(!user||user.isAnonymous||!authorId||user.uid===authorId)return false;
- const ref=doc(db,"seguindoAutores",`${user.uid}_${authorId}`),s=await getDoc(ref);
- if(s.exists()){await deleteDoc(ref);return false}
- await setDoc(ref,{usuarioId:user.uid,autorId:authorId,criadoEm:serverTimestamp()});
+ const rootRef=doc(db,"seguindoAutores",`${user.uid}_${authorId}`),snap=await getDoc(rootRef);
+ const followingRef=doc(db,"usuarios",user.uid,"seguindo",authorId);
+ const followerRef=doc(db,"autores",authorId,"seguidores",user.uid);
+ if(snap.exists()){
+  await deleteDoc(rootRef);
+  await Promise.all([deleteDoc(followingRef).catch(()=>{}),deleteDoc(followerRef).catch(()=>{})]);
+  return false;
+ }
+ const data={usuarioId:user.uid,autorId:authorId,criadoEm:serverTimestamp()};
+ await setDoc(rootRef,data);
+ await Promise.all([setDoc(followingRef,data).catch(()=>{}),setDoc(followerRef,data).catch(()=>{})]);
+ await addDoc(collection(db,"notificacoes"),{
+  destinatarioId:authorId,remetenteId:user.uid,tipo:"seguidor",lida:false,criadoEm:serverTimestamp()
+ }).catch(()=>{});
  return true;
 }
 export async function saveProgress(user,ctx){
@@ -84,12 +128,22 @@ export async function likeState(user,chapterId){
 }
 export async function comments(chapterId){const r=await qdocs(query(collection(db,"comentarios"),where("capituloId","==",chapterId)));return r.sort((a,b)=>ms(b.criadoEm)-ms(a.criadoEm))}
 export async function addComment(user,ctx,text,profile){
- return addDoc(collection(db,"comentarios"),{usuarioId:user.uid,nomeUsuario:profile?.nome||user.displayName||"Leitor",fotoUsuario:profile?.fotoURL||profile?.foto||user.photoURL||"",livroId:ctx.book.id,capituloId:ctx.chapter.id,comentario:text,criadoEm:serverTimestamp(),atualizadoEm:serverTimestamp()});
+ const created=await addDoc(collection(db,"comentarios"),{usuarioId:user.uid,nomeUsuario:profile?.nome||user.displayName||"Leitor",fotoUsuario:profile?.fotoURL||profile?.foto||user.photoURL||"",livroId:ctx.book.id,capituloId:ctx.chapter.id,comentario:text,criadoEm:serverTimestamp(),atualizadoEm:serverTimestamp()});
+ if(ctx?.book?.authorId&&ctx.book.authorId!==user.uid){
+  await addDoc(collection(db,"notificacoes"),{destinatarioId:ctx.book.authorId,remetenteId:user.uid,tipo:"comentario",livroId:ctx.book.id,capituloId:ctx.chapter.id,texto:String(text||"").slice(0,180),lida:false,criadoEm:serverTimestamp()}).catch(()=>{});
+ }
+ return created;
 }
 export async function deleteComment(id){return deleteDoc(doc(db,"comentarios",id))}
 export async function ratings(bookId){const r=await qdocs(query(collection(db,"avaliacoes"),where("livroId","==",bookId)));return r.sort((a,b)=>ms(b.atualizadoEm||b.criadoEm)-ms(a.atualizadoEm||a.criadoEm))}
 export async function saveRating(user,bookId,note,comment,profile){
- return setDoc(doc(db,"avaliacoes",`${bookId}_${user.uid}`),{livroId:bookId,usuarioId:user.uid,usuarioNome:profile?.nome||user.displayName||"Leitor",usuarioFoto:profile?.fotoURL||profile?.foto||user.photoURL||"",nota:Number(note),comentario:comment||"",atualizadoEm:serverTimestamp(),criadoEm:serverTimestamp()},{merge:true});
+ const result=await setDoc(doc(db,"avaliacoes",`${bookId}_${user.uid}`),{livroId:bookId,usuarioId:user.uid,usuarioNome:profile?.nome||user.displayName||"Leitor",usuarioFoto:profile?.fotoURL||profile?.foto||user.photoURL||"",nota:Number(note),comentario:comment||"",atualizadoEm:serverTimestamp(),criadoEm:serverTimestamp()},{merge:true});
+ const bookSnap=await getDoc(doc(db,"livros",bookId)).catch(()=>null);
+ const owner=bookSnap?.exists?.()?bookSnap.data().criadoPor:"";
+ if(owner&&owner!==user.uid){
+  await addDoc(collection(db,"notificacoes"),{destinatarioId:owner,remetenteId:user.uid,tipo:"avaliacao",livroId:bookId,texto:`${Number(note)} de 5 estrelas`,lida:false,criadoEm:serverTimestamp()}).catch(()=>{});
+ }
+ return result;
 }
 export async function deleteRating(user,bookId){return deleteDoc(doc(db,"avaliacoes",`${bookId}_${user.uid}`))}
 export async function latestPublishedChapters(){const raw=await qdocs(query(collection(db,"capitulos"),where("status","==","publicado"),limit(100)));return raw.map(normChapter).sort((a,b)=>ms(b.createdAt)-ms(a.createdAt)).slice(0,40)}

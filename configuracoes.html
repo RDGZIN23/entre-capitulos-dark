@@ -76,7 +76,7 @@
 </div>
 
 
-<div class="profile-privacy-settings">
+<div id="privacySettings" class="profile-privacy-settings">
   <h3>Privacidade do perfil</h3>
   <p class="muted small">
     Escolha quais informações outras pessoas podem visualizar.
@@ -103,6 +103,15 @@
     <select id="privacyReading">
       <option value="publico">Público</option>
       <option value="privado">Privado</option>
+    </select>
+  </div>
+
+  <div class="field">
+    <label for="privacyMessages">Quem pode iniciar novas conversas comigo?</label>
+    <select id="privacyMessages">
+      <option value="todos">Todos os usuários</option>
+      <option value="seguindo">Apenas pessoas que eu sigo</option>
+      <option value="ninguem">Ninguém</option>
     </select>
   </div>
 </div>

@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<script src="js/theme-init.js"></script>
+<link rel="icon" href="assets/logo.svg">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#080b12">
+<link rel="stylesheet" href="css/style.css">
+<title>Notificações · Entre Capítulos</title>
+</head>
+<body>
+<header id="topbar" class="topbar"></header>
+<div class="app-layout">
+  <aside id="sidebar" class="sidebar"></aside>
+  <div class="content-wrap">
+    <main class="content">
+      <div class="section-head notification-page-head">
+        <div>
+          <span class="eyebrow">ATIVIDADE</span>
+          <h1>Notificações</h1>
+          <p>Mensagens, seguidores e interações com suas histórias.</p>
+        </div>
+        <button id="markAllRead" class="btn" type="button">Marcar como lidas</button>
+      </div>
+      <section class="panel notification-panel">
+        <div id="notificationList" class="notification-list">
+          <div class="loading-state">Carregando notificações...</div>
+        </div>
+      </section>
+    </main>
+    <footer id="siteFooter" class="site-footer"></footer>
+  </div>
+</div>
+<nav id="bottomNav" class="bottom-nav"></nav>
+<script src="js/app.js"></script>
+<script type="module" src="js/notifications.js"></script>
+</body>
+</html>

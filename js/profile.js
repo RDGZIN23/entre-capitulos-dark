@@ -1,8 +1,7 @@
 import { auth } from "./firebase-config.js";
 
 import {
-  onAuthStateChanged,
-  signOut
+  onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
 
 import {
@@ -11,8 +10,9 @@ import {
   authorBooks,
   favorites,
   progress,
-  follows,
-  followers,
+  publicFollows,
+  publicFollowers,
+  migrateSocialGraph,
   isFollowing,
   toggleFollow,
   removeSelfFollow
@@ -194,8 +194,8 @@ async function openProfilePeople(kind, uid, isPrivate = false) {
   try {
     const relations =
       kind === "followers"
-        ? await followers(uid)
-        : await follows(uid);
+        ? await publicFollowers(uid)
+        : await publicFollows(uid);
 
     const ids = [...new Set(
       relations
@@ -482,6 +482,7 @@ async function loadOwnProfile(user) {
   wireProfilePeopleStats(user.uid);
 
   await removeSelfFollow(user.uid).catch(() => {});
+  await migrateSocialGraph(user.uid).catch(() => {});
 
   const [
     privateData,
@@ -501,9 +502,9 @@ async function loadOwnProfile(user) {
 
     progress(user.uid).catch(() => []),
 
-    follows(user.uid).catch(() => []),
+    publicFollows(user.uid).catch(() => []),
 
-    followers(user.uid).catch(() => []),
+    publicFollowers(user.uid).catch(() => []),
 
     authorBooks(user.uid).catch(() => [])
 
@@ -537,8 +538,6 @@ async function loadOwnProfile(user) {
 
   renderMeta(profile);
   renderSocials(profile);
-
-  UI.$("#ownProfileActions").classList.remove("hidden");
 
   UI.$("#visitorProfileActions").classList.add("hidden");
 
@@ -576,10 +575,6 @@ async function loadOwnProfile(user) {
       ? savedBooks.slice(0, 6).map(UI.bookCard).join("")
       : `<div class="empty-state">Sua biblioteca está vazia.</div>`;
 
-  UI.$("#logout").onclick = async () => {
-    await signOut(auth);
-    location.replace("login.html");
-  };
 }
 
 async function loadPublicProfile(id, user) {
@@ -649,17 +644,24 @@ async function loadPublicProfile(id, user) {
       ? books.map(UI.bookCard).join("")
       : `<div class="empty-state">Este autor ainda não publicou histórias.</div>`;
 
-  const followerList =
-    await followers(id).catch(() => []);
+  const followersPrivate = author.privacidadeSeguidores === "privado";
+  const followingPrivate = author.privacidadeSeguindo === "privado";
 
-  UI.$("#followerCount").textContent =
-    followerList.filter(x => x.usuarioId !== id).length;
+  const followerList = followersPrivate
+    ? []
+    : await publicFollowers(id).catch(() => []);
 
-  const followingList =
-    await follows(id).catch(() => []);
+  UI.$("#followerCount").textContent = followersPrivate
+    ? (author.seguidoresCount ?? "—")
+    : followerList.filter(x => x.usuarioId !== id).length;
 
-  UI.$("#followCount").textContent =
-    followingList.filter(x => x.autorId !== id).length;
+  const followingList = followingPrivate
+    ? []
+    : await publicFollows(id).catch(() => []);
+
+  UI.$("#followCount").textContent = followingPrivate
+    ? (author.seguindoCount ?? "—")
+    : followingList.filter(x => x.autorId !== id).length;
 
   UI.$("#readCount").textContent =
     readingIsPublic ? publicReading.length : "—";
@@ -668,8 +670,6 @@ async function loadPublicProfile(id, user) {
     location.replace("perfil.html");
     return;
   }
-
-  UI.$("#ownProfileActions").classList.add("hidden");
 
   UI.$("#visitorProfileActions").classList.remove("hidden");
 
@@ -697,7 +697,24 @@ async function loadPublicProfile(id, user) {
 
     button.textContent =
       state ? "✓ Seguindo" : "+ Seguir";
+
+    const followerCount = UI.$("#followerCount");
+    const currentCount = Number(followerCount?.textContent);
+    if (followerCount && Number.isFinite(currentCount)) {
+      followerCount.textContent = Math.max(0, currentCount + (state ? 1 : -1));
+    }
   };
+
+  const messageButton = UI.$("#messageProfileBtn");
+  if (messageButton) {
+    messageButton.onclick = () => {
+      if (!user || user.isAnonymous) {
+        location.href = `login.html?next=${encodeURIComponent(`mensagens.html?to=${id}`)}`;
+        return;
+      }
+      location.href = `mensagens.html?to=${encodeURIComponent(id)}`;
+    };
+  }
 }
 
 onAuthStateChanged(auth, async user => {

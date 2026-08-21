@@ -1,7 +1,7 @@
 export const APP = {
   name: "Entre Capítulos",
   slogan: "Onde cada página ganha vida.",
-  version: "3.0.0",
+  version: "3.2.0",
   cloudinary: {
     cloudName: "dzsf7cwf",
     uploadPreset: "entre_capitulos"

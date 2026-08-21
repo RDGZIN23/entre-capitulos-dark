@@ -61,7 +61,7 @@ O projeto reaproveita:
 - cloud name: `dzsf7cwf`
 - unsigned upload preset: `entre_capitulos`
 
-Para um projeto público grande, é recomendável futuramente trocar upload unsigned por upload assinado em backend/Cloud Function.
+Fotos e áudios do chat também usam o mesmo Cloudinary. O envio atual é unsigned para continuar gratuito e sem backend pago. Para mídia realmente privada por URL, futuramente troque o chat por upload/delivery assinado em um backend com segredo do Cloudinary.
 
 ## Firebase CLI (opcional)
 
@@ -78,3 +78,7 @@ Root Directory: `./`
 Build command: nenhum
 
 Cada push na branch conectada gera novo deploy.
+
+## Atualização social e mensagens
+
+A versão atual inclui mensagens privadas em tempo real, fotos e áudio via Cloudinary, notificações, menu da conta no avatar do topo e privacidade avançada de perfil. Não é necessário ativar Firebase Storage nem mudar para o plano Blaze. Siga `ATUALIZACAO_SOCIAL_MENSAGENS.md` antes de testar mídia no site publicado.

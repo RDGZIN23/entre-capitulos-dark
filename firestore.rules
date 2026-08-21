@@ -13,8 +13,7 @@ service cloud.firestore {
     }
 
     function mine(uid) {
-      return registered()
-        && request.auth.uid == uid;
+      return registered() && request.auth.uid == uid;
     }
 
     function isAdmin() {
@@ -24,9 +23,44 @@ service cloud.firestore {
 
     function bookOwner(bookId) {
       return registered()
-        && get(
-          /databases/$(database)/documents/livros/$(bookId)
-        ).data.criadoPor == request.auth.uid;
+        && get(/databases/$(database)/documents/livros/$(bookId)).data.criadoPor == request.auth.uid;
+    }
+
+    function followId(userId, authorId) {
+      return userId + "_" + authorId;
+    }
+
+    function followersArePublic(uid) {
+      let data = get(/databases/$(database)/documents/autores/$(uid)).data;
+      return !("privacidadeSeguidores" in data) || data.privacidadeSeguidores == "publico";
+    }
+
+    function followingIsPublic(uid) {
+      let data = get(/databases/$(database)/documents/autores/$(uid)).data;
+      return !("privacidadeSeguindo" in data) || data.privacidadeSeguindo == "publico";
+    }
+
+    function readingIsPublic(uid) {
+      let data = get(/databases/$(database)/documents/autores/$(uid)).data;
+      return !("privacidadeLeituras" in data) || data.privacidadeLeituras == "publico";
+    }
+
+    function canReceiveMessages(targetUid) {
+      let data = get(/databases/$(database)/documents/autores/$(targetUid)).data;
+      return !("privacidadeMensagens" in data)
+        || data.privacidadeMensagens == "todos"
+        || (
+          data.privacidadeMensagens == "seguindo"
+          && exists(
+            /databases/$(database)/documents/seguindoAutores/$(followId(targetUid, request.auth.uid))
+          )
+        );
+    }
+
+    function conversationTarget(data) {
+      return data.participanteA == request.auth.uid
+        ? data.participanteB
+        : data.participanteA;
     }
 
     // ==============================
@@ -39,19 +73,32 @@ service cloud.firestore {
         && request.resource.data.uid == uid;
 
       allow get:
-        if mine(uid)
-        || isAdmin();
+        if mine(uid) || isAdmin();
 
       allow update:
-        if mine(uid)
-        || isAdmin();
+        if mine(uid) || isAdmin();
 
       allow delete:
-        if mine(uid)
-        || isAdmin();
+        if mine(uid) || isAdmin();
 
       allow list:
         if isAdmin();
+    }
+
+    // Espelho seguro de "quem eu sigo".
+    match /usuarios/{uid}/seguindo/{authorId} {
+      allow read:
+        if mine(uid)
+        || followingIsPublic(uid);
+
+      allow create, update:
+        if mine(uid)
+        && request.resource.data.usuarioId == uid
+        && request.resource.data.autorId == authorId
+        && uid != authorId;
+
+      allow delete:
+        if mine(uid) || isAdmin();
     }
 
     // ==============================
@@ -63,8 +110,37 @@ service cloud.firestore {
         if true;
 
       allow create, update, delete:
+        if mine(uid) || isAdmin();
+    }
+
+    // Espelho seguro de "quem me segue".
+    match /autores/{uid}/seguidores/{followerId} {
+      allow read:
         if mine(uid)
-        || isAdmin();
+        || followersArePublic(uid);
+
+      allow create, update:
+        if registered()
+        && request.resource.data.usuarioId == followerId
+        && request.resource.data.autorId == uid
+        && followerId != uid
+        && (
+          request.auth.uid == followerId
+          || (
+            request.auth.uid == uid
+            && exists(
+              /databases/$(database)/documents/seguindoAutores/$(followId(followerId, uid))
+            )
+          )
+        );
+
+      allow delete:
+        if registered()
+        && (
+          request.auth.uid == followerId
+          || request.auth.uid == uid
+          || isAdmin()
+        );
     }
 
     // ==============================
@@ -96,15 +172,13 @@ service cloud.firestore {
         && request.resource.data.sinopse is string
         && request.resource.data.autor is string
         && request.resource.data.autor.size() > 0
-        && request.resource.data.status
-          in ["rascunho", "publicado"];
+        && request.resource.data.status in ["rascunho", "publicado"];
 
       allow update:
         if (
           registered()
           && resource.data.criadoPor == request.auth.uid
-          && request.resource.data.criadoPor
-            == resource.data.criadoPor
+          && request.resource.data.criadoPor == resource.data.criadoPor
         )
         || isAdmin();
 
@@ -135,8 +209,7 @@ service cloud.firestore {
         if registered()
         && request.resource.data.criadoPor == request.auth.uid
         && bookOwner(request.resource.data.livroId)
-        && request.resource.data.status
-          in ["rascunho", "publicado"]
+        && request.resource.data.status in ["rascunho", "publicado"]
         && request.resource.data.numero is number
         && request.resource.data.numero >= 1
         && request.resource.data.titulo is string
@@ -146,10 +219,8 @@ service cloud.firestore {
         if (
           registered()
           && bookOwner(resource.data.livroId)
-          && request.resource.data.livroId
-            == resource.data.livroId
-          && request.resource.data.criadoPor
-            == resource.data.criadoPor
+          && request.resource.data.livroId == resource.data.livroId
+          && request.resource.data.criadoPor == resource.data.criadoPor
         )
         || isAdmin();
 
@@ -172,23 +243,17 @@ service cloud.firestore {
 
       allow list:
         if registered()
-        && resource.data.usuarioId
-          == request.auth.uid;
+        && resource.data.usuarioId == request.auth.uid;
 
       allow create:
         if registered()
-        && request.resource.data.usuarioId
-          == request.auth.uid
-        && favoriteId
-          == request.auth.uid
-          + "_"
-          + request.resource.data.livroId;
+        && request.resource.data.usuarioId == request.auth.uid
+        && favoriteId == request.auth.uid + "_" + request.resource.data.livroId;
 
       allow delete:
         if (
           registered()
-          && resource.data.usuarioId
-            == request.auth.uid
+          && resource.data.usuarioId == request.auth.uid
         )
         || isAdmin();
 
@@ -206,70 +271,207 @@ service cloud.firestore {
           registered()
           && resource.data.usuarioId == request.auth.uid
         )
-        || (
-          get(
-            /databases/$(database)/documents/autores/$(resource.data.usuarioId)
-          ).data.privacidadeLeituras == "publico"
-        );
+        || readingIsPublic(resource.data.usuarioId);
 
       allow create:
         if registered()
-        && request.resource.data.usuarioId
-          == request.auth.uid
-        && progressId
-          == request.auth.uid
-          + "_"
-          + request.resource.data.livroId;
+        && request.resource.data.usuarioId == request.auth.uid
+        && progressId == request.auth.uid + "_" + request.resource.data.livroId;
 
       allow update:
         if registered()
-        && resource.data.usuarioId
-          == request.auth.uid
-        && request.resource.data.usuarioId
-          == request.auth.uid;
+        && resource.data.usuarioId == request.auth.uid
+        && request.resource.data.usuarioId == request.auth.uid;
 
       allow delete:
         if (
           registered()
-          && resource.data.usuarioId
-            == request.auth.uid
+          && resource.data.usuarioId == request.auth.uid
         )
         || isAdmin();
     }
 
     // ==============================
-    // SEGUIR AUTORES
+    // SEGUIR AUTORES - BASE LEGADA PRIVADA
     // ==============================
 
     match /seguindoAutores/{followId} {
       allow get:
         if registered()
-        && followId.matches(request.auth.uid + '_.*');
+        && (
+          followId.matches(request.auth.uid + '_.*')
+          || resource.data.autorId == request.auth.uid
+        );
 
       allow list:
-    if true;
+        if registered()
+        && (
+          resource.data.usuarioId == request.auth.uid
+          || resource.data.autorId == request.auth.uid
+        );
 
       allow create:
         if registered()
-        && request.resource.data.usuarioId
-          == request.auth.uid
+        && request.resource.data.usuarioId == request.auth.uid
         && request.resource.data.autorId is string
         && request.resource.data.autorId != request.auth.uid
-        && followId
-          == request.auth.uid
-          + "_"
-          + request.resource.data.autorId;
+        && followId == request.auth.uid + "_" + request.resource.data.autorId;
 
       allow delete:
         if (
           registered()
-          && resource.data.usuarioId
-            == request.auth.uid
+          && resource.data.usuarioId == request.auth.uid
         )
         || isAdmin();
 
       allow update:
         if false;
+    }
+
+    // ==============================
+    // CONVERSAS E MENSAGENS PRIVADAS
+    // ==============================
+
+    match /conversas/{conversationId} {
+      allow get, list:
+        if registered()
+        && request.auth.uid in resource.data.participantes;
+
+      allow create:
+        if registered()
+        && request.resource.data.participantes is list
+        && request.resource.data.participantes.size() == 2
+        && request.auth.uid in request.resource.data.participantes
+        && request.resource.data.participanteA in request.resource.data.participantes
+        && request.resource.data.participanteB in request.resource.data.participantes
+        && request.resource.data.participanteA != request.resource.data.participanteB
+        && canReceiveMessages(conversationTarget(request.resource.data));
+
+      allow update:
+        if registered()
+        && request.auth.uid in resource.data.participantes
+        && request.resource.data.participantes == resource.data.participantes
+        && request.resource.data.participanteA == resource.data.participanteA
+        && request.resource.data.participanteB == resource.data.participanteB;
+
+      allow delete:
+        if isAdmin();
+
+      match /mensagens/{messageId} {
+        allow read:
+          if registered()
+          && request.auth.uid in get(
+            /databases/$(database)/documents/conversas/$(conversationId)
+          ).data.participantes;
+
+        allow create:
+          if registered()
+          && request.auth.uid in get(
+            /databases/$(database)/documents/conversas/$(conversationId)
+          ).data.participantes
+          && request.resource.data.remetenteId == request.auth.uid
+          && request.resource.data.destinatarioId in get(
+            /databases/$(database)/documents/conversas/$(conversationId)
+          ).data.participantes
+          && request.resource.data.destinatarioId != request.auth.uid
+          && request.resource.data.tipo in ["texto", "imagem", "audio"]
+          && request.resource.data.texto is string
+          && request.resource.data.texto.size() <= 4000
+          && request.resource.data.mediaUrl is string
+          && request.resource.data.mediaUrl.size() <= 1200
+          && request.resource.data.cloudinaryPublicId is string
+          && request.resource.data.cloudinaryPublicId.size() <= 500
+          && request.resource.data.cloudinaryResourceType is string
+          && request.resource.data.cloudinaryResourceType.size() <= 20
+          && request.resource.data.cloudinaryFormat is string
+          && request.resource.data.cloudinaryFormat.size() <= 20
+          && request.resource.data.mediaBytes is number
+          && request.resource.data.mediaBytes >= 0
+          && request.resource.data.mediaBytes <= 15728640
+          && (
+            (
+              request.resource.data.tipo == "texto"
+              && request.resource.data.mediaUrl == ""
+            )
+            || (
+              request.resource.data.tipo in ["imagem", "audio"]
+              && request.resource.data.mediaUrl.matches(
+                'https://res[.]cloudinary[.]com/dzsf7cwf/.*'
+              )
+            )
+          );
+
+        allow update:
+          if false;
+
+        allow delete:
+          if (
+            registered()
+            && resource.data.remetenteId == request.auth.uid
+          )
+          || isAdmin();
+      }
+    }
+
+    // ==============================
+    // NOTIFICAÇÕES
+    // ==============================
+
+    match /notificacoes/{notificationId} {
+      allow get, list:
+        if registered()
+        && resource.data.destinatarioId == request.auth.uid;
+
+      allow create:
+        if registered()
+        && request.resource.data.remetenteId == request.auth.uid
+        && request.resource.data.destinatarioId is string
+        && request.resource.data.destinatarioId != request.auth.uid
+        && request.resource.data.tipo in ["mensagem", "seguidor", "comentario", "avaliacao"]
+        && (
+          (
+            request.resource.data.tipo == "mensagem"
+            && request.resource.data.conversaId is string
+            && request.auth.uid in get(
+              /databases/$(database)/documents/conversas/$(request.resource.data.conversaId)
+            ).data.participantes
+            && request.resource.data.destinatarioId in get(
+              /databases/$(database)/documents/conversas/$(request.resource.data.conversaId)
+            ).data.participantes
+          )
+          || (
+            request.resource.data.tipo == "seguidor"
+            && exists(
+              /databases/$(database)/documents/seguindoAutores/$(followId(request.auth.uid, request.resource.data.destinatarioId))
+            )
+          )
+          || (
+            request.resource.data.tipo == "comentario"
+            && request.resource.data.livroId is string
+            && get(
+              /databases/$(database)/documents/livros/$(request.resource.data.livroId)
+            ).data.criadoPor == request.resource.data.destinatarioId
+          )
+          || (
+            request.resource.data.tipo == "avaliacao"
+            && request.resource.data.livroId is string
+            && get(
+              /databases/$(database)/documents/livros/$(request.resource.data.livroId)
+            ).data.criadoPor == request.resource.data.destinatarioId
+          )
+        );
+
+      allow update:
+        if registered()
+        && resource.data.destinatarioId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["lida"]);
+
+      allow delete:
+        if (
+          registered()
+          && resource.data.destinatarioId == request.auth.uid
+        )
+        || isAdmin();
     }
 
     // ==============================
@@ -282,42 +484,31 @@ service cloud.firestore {
 
       allow create:
         if registered()
-        && request.resource.data.usuarioId
-          == request.auth.uid
+        && request.resource.data.usuarioId == request.auth.uid
         && request.resource.data.livroId is string
         && request.resource.data.livroId.size() > 0
         && request.resource.data.nota is int
         && request.resource.data.nota >= 1
         && request.resource.data.nota <= 5
-        && ratingId
-          == request.resource.data.livroId
-          + "_"
-          + request.auth.uid;
+        && ratingId == request.resource.data.livroId + "_" + request.auth.uid;
 
       allow update:
         if (
           registered()
-          && resource.data.usuarioId
-            == request.auth.uid
-          && request.resource.data.usuarioId
-            == request.auth.uid
-          && request.resource.data.livroId
-            == resource.data.livroId
+          && resource.data.usuarioId == request.auth.uid
+          && request.resource.data.usuarioId == request.auth.uid
+          && request.resource.data.livroId == resource.data.livroId
           && request.resource.data.nota is int
           && request.resource.data.nota >= 1
           && request.resource.data.nota <= 5
-          && ratingId
-            == request.resource.data.livroId
-            + "_"
-            + request.auth.uid
+          && ratingId == request.resource.data.livroId + "_" + request.auth.uid
         )
         || isAdmin();
 
       allow delete:
         if (
           registered()
-          && resource.data.usuarioId
-            == request.auth.uid
+          && resource.data.usuarioId == request.auth.uid
         )
         || isAdmin();
     }
@@ -332,8 +523,7 @@ service cloud.firestore {
 
       allow create:
         if registered()
-        && request.resource.data.usuarioId
-          == request.auth.uid
+        && request.resource.data.usuarioId == request.auth.uid
         && request.resource.data.capituloId is string
         && request.resource.data.capituloId.size() > 0
         && request.resource.data.comentario is string
@@ -343,10 +533,8 @@ service cloud.firestore {
       allow update:
         if (
           registered()
-          && resource.data.usuarioId
-            == request.auth.uid
-          && request.resource.data.usuarioId
-            == resource.data.usuarioId
+          && resource.data.usuarioId == request.auth.uid
+          && request.resource.data.usuarioId == resource.data.usuarioId
           && request.resource.data.comentario is string
           && request.resource.data.comentario.size() >= 2
           && request.resource.data.comentario.size() <= 1200
@@ -356,8 +544,7 @@ service cloud.firestore {
       allow delete:
         if (
           registered()
-          && resource.data.usuarioId
-            == request.auth.uid
+          && resource.data.usuarioId == request.auth.uid
         )
         || isAdmin();
     }
@@ -372,14 +559,10 @@ service cloud.firestore {
 
       allow create:
         if signedIn()
-        && request.resource.data.usuarioId
-          == request.auth.uid
+        && request.resource.data.usuarioId == request.auth.uid
         && request.resource.data.capituloId is string
         && request.resource.data.capituloId.size() > 0
-        && viewId
-          == request.resource.data.capituloId
-          + "_"
-          + request.auth.uid;
+        && viewId == request.resource.data.capituloId + "_" + request.auth.uid;
 
       allow update:
         if false;
@@ -398,19 +581,14 @@ service cloud.firestore {
 
       allow create:
         if registered()
-        && request.resource.data.usuarioId
-          == request.auth.uid
+        && request.resource.data.usuarioId == request.auth.uid
         && request.resource.data.capituloId is string
-        && likeId
-          == request.resource.data.capituloId
-          + "_"
-          + request.auth.uid;
+        && likeId == request.resource.data.capituloId + "_" + request.auth.uid;
 
       allow delete:
         if (
           registered()
-          && resource.data.usuarioId
-            == request.auth.uid
+          && resource.data.usuarioId == request.auth.uid
         )
         || isAdmin();
 
