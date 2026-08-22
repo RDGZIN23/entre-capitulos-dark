@@ -384,7 +384,60 @@ async function hydrateMedia(messages) {
 }
 
 
-function formatAudioTime(value) {\n  const seconds = Number.isFinite(Number(value)) ? Math.max(0, Math.floor(Number(value))) : 0;\n  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;\n}\n\nfunction setupVoicePlayer(root) {\n  if (!root) return;\n  const audio = root.querySelector(".voice-audio");\n  const play = root.querySelector(".voice-play");\n  const playIcon = root.querySelector(".voice-play-icon");\n  const pauseIcon = root.querySelector(".voice-pause-icon");\n  const progress = root.querySelector(".voice-progress");\n  const current = root.querySelector("[data-voice-current]");\n  const duration = root.querySelector("[data-voice-duration]");\n\n  const sync = () => {\n    const total = Number.isFinite(audio.duration) ? audio.duration : 0;\n    const now = Number.isFinite(audio.currentTime) ? audio.currentTime : 0;\n    progress.value = total ? String(Math.round((now / total) * 1000)) : "0";\n    current.textContent = formatAudioTime(now);\n    duration.textContent = formatAudioTime(total);\n  };\n\n  const syncPlaying = () => {\n    const active = !audio.paused && !audio.ended;\n    playIcon.classList.toggle("hidden", active);\n    pauseIcon.classList.toggle("hidden", !active);\n    root.classList.toggle("is-playing", active);\n  };\n\n  play.onclick = async () => {\n    document.querySelectorAll(".voice-audio").forEach(other => {\n      if (other !== audio && !other.paused) other.pause();\n    });\n    if (audio.paused) await audio.play().catch(() => {});\n    else audio.pause();\n    syncPlaying();\n  };\n\n  progress.oninput = () => {\n    if (!Number.isFinite(audio.duration) || !audio.duration) return;\n    audio.currentTime = (Number(progress.value) / 1000) * audio.duration;\n    sync();\n  };\n\n  audio.addEventListener("loadedmetadata", sync);\n  audio.addEventListener("durationchange", sync);\n  audio.addEventListener("timeupdate", sync);\n  audio.addEventListener("play", syncPlaying);\n  audio.addEventListener("pause", syncPlaying);\n  audio.addEventListener("ended", () => { audio.currentTime = 0; sync(); syncPlaying(); });\n}\n\nfunction ensureImageViewer() {
+function formatAudioTime(value) {
+  const seconds = Number.isFinite(Number(value)) ? Math.max(0, Math.floor(Number(value))) : 0;
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+}
+
+function setupVoicePlayer(root) {
+  if (!root) return;
+  const audio = root.querySelector(".voice-audio");
+  const play = root.querySelector(".voice-play");
+  const playIcon = root.querySelector(".voice-play-icon");
+  const pauseIcon = root.querySelector(".voice-pause-icon");
+  const progress = root.querySelector(".voice-progress");
+  const current = root.querySelector("[data-voice-current]");
+  const duration = root.querySelector("[data-voice-duration]");
+
+  const sync = () => {
+    const total = Number.isFinite(audio.duration) ? audio.duration : 0;
+    const now = Number.isFinite(audio.currentTime) ? audio.currentTime : 0;
+    progress.value = total ? String(Math.round((now / total) * 1000)) : "0";
+    current.textContent = formatAudioTime(now);
+    duration.textContent = formatAudioTime(total);
+  };
+
+  const syncPlaying = () => {
+    const active = !audio.paused && !audio.ended;
+    playIcon.classList.toggle("hidden", active);
+    pauseIcon.classList.toggle("hidden", !active);
+    root.classList.toggle("is-playing", active);
+  };
+
+  play.onclick = async () => {
+    document.querySelectorAll(".voice-audio").forEach(other => {
+      if (other !== audio && !other.paused) other.pause();
+    });
+    if (audio.paused) await audio.play().catch(() => {});
+    else audio.pause();
+    syncPlaying();
+  };
+
+  progress.oninput = () => {
+    if (!Number.isFinite(audio.duration) || !audio.duration) return;
+    audio.currentTime = (Number(progress.value) / 1000) * audio.duration;
+    sync();
+  };
+
+  audio.addEventListener("loadedmetadata", sync);
+  audio.addEventListener("durationchange", sync);
+  audio.addEventListener("timeupdate", sync);
+  audio.addEventListener("play", syncPlaying);
+  audio.addEventListener("pause", syncPlaying);
+  audio.addEventListener("ended", () => { audio.currentTime = 0; sync(); syncPlaying(); });
+}
+
+function ensureImageViewer() {
   let viewer = document.querySelector("#messageImageViewer");
 
   if (viewer) return viewer;
