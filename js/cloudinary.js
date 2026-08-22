@@ -36,7 +36,6 @@ export async function uploadChatMedia(file,{tipo="imagem",conversationId="",user
   form.append("file", file);
   form.append("upload_preset", APP.cloudinary.uploadPreset);
   form.append("folder", folder);
-  form.append("return_delete_token", "true");
   form.append("tags", "entre-capitulos,chat");
 
   const url = `https://api.cloudinary.com/v1_1/${APP.cloudinary.cloudName}/${resourceType}/upload`;
