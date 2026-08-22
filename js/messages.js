@@ -31,6 +31,9 @@ const recordingTime = UI.$("#recordingTime");
 const stopRecording = UI.$("#stopRecording");
 const cancelRecording = UI.$("#cancelRecording");
 const sendButton = UI.$("#sendMessage");
+const conversationSearch = UI.$("#conversationSearch");
+const clearConversationSearch = UI.$("#clearConversationSearch");
+const chatProfileAction = UI.$("#chatProfileAction");
 
 let user = null;
 let conversations = [];
@@ -68,32 +71,145 @@ async function resolveConversationProfile(conversation) {
   return profile;
 }
 
+function normalizeConversationSearch(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function applyConversationSearch() {
+  if (!conversationSearch) return;
+
+  const query = normalizeConversationSearch(conversationSearch.value);
+  const items = UI.$$("[data-conversation]", conversationList);
+  let visible = 0;
+
+  items.forEach(item => {
+    const matches =
+      !query ||
+      String(item.dataset.search || "").includes(query);
+
+    item.hidden = !matches;
+
+    if (matches) visible += 1;
+  });
+
+  clearConversationSearch?.classList.toggle(
+    "hidden",
+    !conversationSearch.value
+  );
+
+  let empty = conversationList.querySelector(
+    ".conversation-search-empty"
+  );
+
+  if (query && !visible && items.length) {
+    if (!empty) {
+      empty = document.createElement("div");
+      empty.className =
+        "empty-state conversation-search-empty";
+
+      empty.innerHTML =
+        '<strong>Nenhuma conversa encontrada</strong>' +
+        '<span>Tente pesquisar outro nome.</span>';
+
+      conversationList.appendChild(empty);
+    }
+  } else {
+    empty?.remove();
+  }
+}
+
 async function renderConversationList() {
   if (!conversations.length) {
-    conversationList.innerHTML = `<div class="empty-state">Você ainda não tem conversas. Abra o perfil de alguém e toque em <strong>Mensagem</strong>.</div>`;
+    conversationList.innerHTML = `
+      <div class="empty-state messages-list-empty">
+        <div class="messages-list-empty-icon">✦</div>
+        <strong>Nenhuma conversa ainda</strong>
+        <span>Abra o perfil de alguém e toque em Mensagem.</span>
+        <a href="explorar.html" class="btn btn-primary">
+          Encontrar pessoas
+        </a>
+      </div>
+    `;
     return;
   }
 
-  const profiles = await Promise.all(conversations.map(resolveConversationProfile));
-  const unreadMap = window.__EC_NOTIFICATION_STATE?.messageConversations || new Set();
+  const profiles = await Promise.all(
+    conversations.map(resolveConversationProfile)
+  );
+
+  const unreadMap =
+    window.__EC_NOTIFICATION_STATE?.messageConversations ||
+    new Set();
 
   conversationList.innerHTML = conversations.map((c, i) => {
     const p = profiles[i];
     const active = c.id === currentConversation?.id;
     const unread = unreadMap.has(c.id);
-    return `<button class="conversation-item ${active ? "active" : ""}" data-conversation="${UI.esc(c.id)}" type="button">
-      <span class="conversation-avatar" ${avatarStyle(p.fotoURL)}>${p.fotoURL ? "" : UI.initials(p.nome)}</span>
-      <span class="conversation-copy">
-        <span class="conversation-name">${UI.esc(p.nome || "Usuário")}${unread ? '<i class="conversation-unread-dot"></i>' : ""}</span>
-        <span class="conversation-preview">${UI.esc(c.ultimoTexto || "Comece a conversa")}</span>
-      </span>
-      <span class="conversation-time">${timeLabel(c.ultimaMensagemEm || c.atualizadoEm)}</span>
-    </button>`;
+
+    const preview =
+      c.ultimoTexto ||
+      "Comece a conversa";
+
+    const searchText = normalizeConversationSearch(
+      `${p.nome || ""} ${preview}`
+    );
+
+    return `
+      <button
+        class="conversation-item ${active ? "active" : ""} ${unread ? "unread" : ""}"
+        data-conversation="${UI.esc(c.id)}"
+        data-search="${UI.esc(searchText)}"
+        type="button"
+      >
+        <span class="conversation-avatar-wrap">
+          <span
+            class="conversation-avatar"
+            ${avatarStyle(p.fotoURL)}
+          >
+            ${p.fotoURL ? "" : UI.initials(p.nome)}
+          </span>
+
+          ${unread
+            ? '<span class="conversation-status-dot"></span>'
+            : ''
+          }
+        </span>
+
+        <span class="conversation-copy">
+          <span class="conversation-name">
+            ${UI.esc(p.nome || "Usuário")}
+          </span>
+
+          <span class="conversation-preview">
+            ${UI.esc(preview)}
+          </span>
+        </span>
+
+        <span class="conversation-meta">
+          <span class="conversation-time">
+            ${timeLabel(c.ultimaMensagemEm || c.atualizadoEm)}
+          </span>
+
+          ${unread
+            ? '<span class="conversation-unread-badge">1</span>'
+            : ''
+          }
+        </span>
+      </button>
+    `;
   }).join("");
 
-  UI.$$('[data-conversation]', conversationList).forEach(btn => {
-    btn.onclick = () => openConversation(btn.dataset.conversation);
-  });
+  UI.$$("[data-conversation]", conversationList)
+    .forEach(btn => {
+      btn.onclick = () =>
+        openConversation(btn.dataset.conversation);
+    });
+
+  applyConversationSearch();
 }
 
 async function openConversation(id) {
@@ -112,6 +228,9 @@ async function openConversation(id) {
   const p = await resolveConversationProfile(convo);
   UI.$("#chatName").textContent = p.nome || "Usuário";
   UI.$("#chatUserLink").href = `perfil.html?id=${encodeURIComponent(p.uid)}`;
+  if (chatProfileAction) {
+    chatProfileAction.href = `perfil.html?id=${encodeURIComponent(p.uid)}`;
+  }
   const avatar = UI.$("#chatAvatar");
   avatar.textContent = p.fotoURL ? "" : UI.initials(p.nome);
   avatar.style.backgroundImage = p.fotoURL ? `url("${UI.safeHttps(p.fotoURL)}")` : "";
@@ -180,6 +299,16 @@ async function setSending(state, label = "") {
   sendButton.textContent = state ? "…" : "➤";
   if (label) UI.toast(label);
 }
+
+conversationSearch?.addEventListener("input", () => {
+  applyConversationSearch();
+});
+
+clearConversationSearch?.addEventListener("click", () => {
+  conversationSearch.value = "";
+  conversationSearch.focus();
+  applyConversationSearch();
+});
 
 composer.onsubmit = async event => {
   event.preventDefault();
