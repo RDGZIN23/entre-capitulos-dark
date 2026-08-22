@@ -13,7 +13,8 @@ import {
   limit,
   onSnapshot,
   serverTimestamp,
-  writeBatch
+  writeBatch,
+  deleteDoc
 } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
 import { publicAuthor, isFollowing } from "./firebase-data.js";
 import { uploadChatMedia, deleteCloudinaryUploadByToken } from "./cloudinary.js";
@@ -205,6 +206,71 @@ async function sendMessage(user, conversation, payload) {
 
   await batch.commit();
   return msgRef.id;
+}
+
+
+export async function deleteMessage(user, conversationId, messageId) {
+  if (!user?.uid || !conversationId || !messageId) {
+    throw new Error("Mensagem inválida.");
+  }
+
+  const ref = doc(
+    db,
+    "conversas",
+    conversationId,
+    "mensagens",
+    messageId
+  );
+
+  const snap = await getDoc(ref);
+
+  if (!snap.exists()) return true;
+
+  const data = snap.data();
+
+  if (data.remetenteId !== user.uid) {
+    throw new Error("Você só pode apagar suas próprias mensagens.");
+  }
+
+  await deleteDoc(ref);
+
+  const remaining = await getDocs(
+    query(
+      collection(db, "conversas", conversationId, "mensagens"),
+      orderBy("criadoEm", "desc"),
+      limit(1)
+    )
+  );
+
+  let ultimoTexto = "";
+  let ultimoTipo = "texto";
+  let ultimaMensagemEm = serverTimestamp();
+
+  if (!remaining.empty) {
+    const last = remaining.docs[0].data();
+
+    ultimoTipo = last.tipo || "texto";
+    ultimaMensagemEm = last.criadoEm || serverTimestamp();
+
+    ultimoTexto =
+      last.tipo === "imagem"
+        ? "📷 Foto"
+        : last.tipo === "audio"
+          ? "🎤 Áudio"
+          : String(last.texto || "").slice(0, 140);
+  }
+
+  await updateDoc(
+    doc(db, "conversas", conversationId),
+    {
+      ultimoTexto,
+      ultimoTipo,
+      ultimaMensagemEm,
+      atualizadoEm: serverTimestamp()
+    }
+  ).catch(() => {});
+
+  return true;
 }
 
 export function otherParticipant(conversation, uid) {

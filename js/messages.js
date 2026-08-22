@@ -11,7 +11,8 @@ import {
   conversationProfile,
   otherParticipant,
   mediaObjectUrl,
-  markConversationNotificationsRead
+  markConversationNotificationsRead,
+  deleteMessage
 } from "./messaging-data.js";
 
 UI.shell("messages");
@@ -249,66 +250,288 @@ async function openConversation(id) {
 
 function renderMessages(messages) {
   if (!messages.length) {
-    messageList.innerHTML = `<div class="chat-start"><strong>Comece a conversa</strong><span>As mensagens ficam visíveis apenas para vocês dois.</span></div>`;
+    messageList.innerHTML = `
+      <div class="chat-start">
+        <strong>Comece a conversa</strong>
+        <span>As mensagens ficam visíveis apenas para vocês dois.</span>
+      </div>
+    `;
     return;
   }
 
   messageList.innerHTML = messages.map((m, index) => {
     const mine = m.remetenteId === user.uid;
-    const text = m.texto ? `<div class="message-text">${UI.esc(m.texto).replace(/\n/g, "<br>")}</div>` : "";
+
+    const text = m.texto
+      ? `<div class="message-text">${UI.esc(m.texto).replace(/\n/g, "<br>")}</div>`
+      : "";
+
     let media = "";
-    if (m.tipo === "imagem" && m.mediaUrl) media = `<div class="message-media message-media-loading" data-media-index="${index}" data-media-type="imagem">Carregando foto...</div>`;
-    if (m.tipo === "audio" && m.mediaUrl) media = `<div class="message-media message-media-loading" data-media-index="${index}" data-media-type="audio">Carregando áudio...</div>`;
-    return `<div class="message-row ${mine ? "mine" : "theirs"}">
-      <div class="message-bubble ${m.tipo !== "texto" ? "has-media" : ""}">
-        ${media}${text}
-        <span class="message-time">${timeLabel(m.criadoEm)}</span>
+
+    if (m.tipo === "imagem" && m.mediaUrl) {
+      media = `
+        <div
+          class="message-media message-media-loading"
+          data-media-index="${index}"
+          data-media-type="imagem"
+        >
+          Carregando foto...
+        </div>
+      `;
+    }
+
+    if (m.tipo === "audio" && m.mediaUrl) {
+      media = `
+        <div
+          class="message-media message-media-loading"
+          data-media-index="${index}"
+          data-media-type="audio"
+        >
+          Carregando áudio...
+        </div>
+      `;
+    }
+
+    const actions = mine
+      ? `
+        <button
+          class="message-actions-button"
+          type="button"
+          data-delete-message="${UI.esc(m.id)}"
+          aria-label="Opções da mensagem"
+          title="Apagar mensagem"
+        >
+          ⋯
+        </button>
+      `
+      : "";
+
+    return `
+      <div class="message-row ${mine ? "mine" : "theirs"}">
+        <div class="message-bubble ${m.tipo !== "texto" ? "has-media" : ""}">
+          ${actions}
+          ${media}
+          ${text}
+          <span class="message-time">${timeLabel(m.criadoEm)}</span>
+        </div>
       </div>
-    </div>`;
+    `;
   }).join("");
 
   hydrateMedia(messages);
-  requestAnimationFrame(() => { messageList.scrollTop = messageList.scrollHeight; });
+
+  requestAnimationFrame(() => {
+    messageList.scrollTop = messageList.scrollHeight;
+  });
 }
 
+
 async function hydrateMedia(messages) {
-  const nodes = UI.$$('[data-media-index]', messageList);
-  await Promise.all(nodes.map(async node => {
-    const msg = messages[Number(node.dataset.mediaIndex)];
-    const source = msg?.mediaUrl || "";
-    if (!source) return;
-    try {
-      const url = await mediaObjectUrl(source);
-      node.classList.remove("message-media-loading");
-      node.innerHTML = node.dataset.mediaType === "imagem"
-        ? `<img class="message-image" src="${url}" alt="Foto enviada na conversa">`
-        : `<audio class="message-audio" controls preload="metadata" src="${url}"></audio>`;
-      requestAnimationFrame(() => { messageList.scrollTop = messageList.scrollHeight; });
-    } catch (error) {
-      console.error(error);
-      node.textContent = "Não foi possível abrir este arquivo.";
-    }
-  }));
+  const nodes = UI.$$("[data-media-index]", messageList);
+
+  await Promise.all(
+    nodes.map(async node => {
+      const msg = messages[Number(node.dataset.mediaIndex)];
+      const source = msg?.mediaUrl || "";
+
+      if (!source) return;
+
+      try {
+        const url = await mediaObjectUrl(source);
+
+        node.classList.remove("message-media-loading");
+
+        if (node.dataset.mediaType === "imagem") {
+          node.innerHTML = `
+            <img
+              class="message-image"
+              src="${UI.esc(url)}"
+              alt="Foto enviada na conversa"
+              loading="lazy"
+              data-open-message-image
+            >
+          `;
+        } else {
+          node.innerHTML = `
+            <audio
+              class="message-audio"
+              controls
+              preload="metadata"
+              src="${UI.esc(url)}"
+            ></audio>
+          `;
+        }
+
+        requestAnimationFrame(() => {
+          messageList.scrollTop = messageList.scrollHeight;
+        });
+
+      } catch (error) {
+        console.error(error);
+        node.textContent = "Não foi possível abrir este arquivo.";
+      }
+    })
+  );
 }
+
+
+function ensureImageViewer() {
+  let viewer = document.querySelector("#messageImageViewer");
+
+  if (viewer) return viewer;
+
+  viewer = document.createElement("div");
+  viewer.id = "messageImageViewer";
+  viewer.className = "message-image-viewer hidden";
+
+  viewer.innerHTML = `
+    <button
+      class="message-image-viewer-close"
+      type="button"
+      aria-label="Fechar foto"
+    >
+      ×
+    </button>
+
+    <img
+      class="message-image-viewer-photo"
+      alt="Foto da conversa"
+    >
+  `;
+
+  document.body.appendChild(viewer);
+
+  viewer.addEventListener("click", event => {
+    if (
+      event.target === viewer ||
+      event.target.closest(".message-image-viewer-close")
+    ) {
+      closeImageViewer();
+    }
+  });
+
+  return viewer;
+}
+
+
+function openImageViewer(url) {
+  const viewer = ensureImageViewer();
+  const image = viewer.querySelector(".message-image-viewer-photo");
+
+  image.src = url;
+  viewer.classList.remove("hidden");
+  document.documentElement.classList.add("message-image-viewer-open");
+}
+
+
+function closeImageViewer() {
+  const viewer = document.querySelector("#messageImageViewer");
+  if (!viewer) return;
+
+  viewer.classList.add("hidden");
+
+  const image = viewer.querySelector(".message-image-viewer-photo");
+  if (image) image.src = "";
+
+  document.documentElement.classList.remove("message-image-viewer-open");
+}
+
+
+document.addEventListener("keydown", event => {
+  if (event.key === "Escape") {
+    closeImageViewer();
+  }
+});
+
+
+messageList.addEventListener("click", async event => {
+
+  const image = event.target.closest("[data-open-message-image]");
+
+  if (image) {
+    openImageViewer(image.src);
+    return;
+  }
+
+
+  const deleteButton = event.target.closest("[data-delete-message]");
+
+  if (!deleteButton || !currentConversation || !user) return;
+
+  event.preventDefault();
+  event.stopPropagation();
+
+  const messageId = deleteButton.dataset.deleteMessage;
+
+  const confirmed = window.confirm(
+    "Apagar esta mensagem?\n\nEla será removida da conversa."
+  );
+
+  if (!confirmed) return;
+
+  deleteButton.disabled = true;
+
+  try {
+    await deleteMessage(
+      user,
+      currentConversation.id,
+      messageId
+    );
+
+    UI.toast("Mensagem apagada.");
+
+  } catch (error) {
+    console.error(error);
+    UI.toast(
+      error.message ||
+      "Não foi possível apagar a mensagem."
+    );
+
+    deleteButton.disabled = false;
+  }
+});
+
+
+function ensureUploadStatus() {
+  let status = document.querySelector("#composerUploadStatus");
+
+  if (status) return status;
+
+  status = document.createElement("div");
+  status.id = "composerUploadStatus";
+  status.className = "composer-upload-status hidden";
+
+  status.innerHTML = `
+    <span class="composer-upload-spinner"></span>
+    <strong></strong>
+  `;
+
+  composer.prepend(status);
+
+  return status;
+}
+
 
 async function setSending(state, label = "") {
   sending = state;
+
   sendButton.disabled = state;
   attachImage.disabled = state;
   recordAudio.disabled = state;
-  sendButton.textContent = state ? "…" : "➤";
-  if (label) UI.toast(label);
+
+  sendButton.classList.toggle("is-sending", state);
+
+  const status = ensureUploadStatus();
+  const text = status.querySelector("strong");
+
+  if (state && label) {
+    text.textContent = label;
+    status.classList.remove("hidden");
+  } else {
+    text.textContent = "";
+    status.classList.add("hidden");
+  }
 }
-
-conversationSearch?.addEventListener("input", () => {
-  applyConversationSearch();
-});
-
-clearConversationSearch?.addEventListener("click", () => {
-  conversationSearch.value = "";
-  conversationSearch.focus();
-  applyConversationSearch();
-});
 
 composer.onsubmit = async event => {
   event.preventDefault();
