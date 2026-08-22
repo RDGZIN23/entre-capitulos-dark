@@ -62,8 +62,6 @@ export async function ensureConversation(user, targetId) {
   const [a, b] = pair(user.uid, targetId);
   const id = conversationIdFor(user.uid, targetId);
   const ref = doc(db, "conversas", id);
-  const existing = await getDoc(ref);
-  if (existing.exists()) return { id, ...existing.data() };
 
   const [me, other] = await Promise.all([
     publicAuthor(user.uid).catch(() => null),
@@ -73,7 +71,7 @@ export async function ensureConversation(user, targetId) {
   const infoA = a === user.uid ? me : other;
   const infoB = b === user.uid ? me : other;
 
-  const data = {
+  const base = {
     participantes: [a, b],
     participanteA: a,
     participanteB: b,
@@ -84,15 +82,15 @@ export async function ensureConversation(user, targetId) {
     perfilB: {
       nome: infoB?.nome || (b === user.uid ? user.displayName : "") || "Leitor",
       fotoURL: infoB?.fotoURL || (b === user.uid ? user.photoURL : "") || ""
-    },
-    ultimoTexto: "",
-    ultimoTipo: "texto",
-    criadoEm: serverTimestamp(),
-    atualizadoEm: serverTimestamp()
+    }
   };
 
-  await setDoc(ref, data);
-  return { id, ...data };
+  await setDoc(ref, base, { merge: true });
+
+  const snap = await getDoc(ref);
+  return snap.exists()
+    ? { id: snap.id, ...snap.data() }
+    : { id, ...base };
 }
 
 export async function conversationById(id) {
