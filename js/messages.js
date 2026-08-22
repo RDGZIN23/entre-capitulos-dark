@@ -35,6 +35,9 @@ const sendButton = UI.$("#sendMessage");
 const conversationSearch = UI.$("#conversationSearch");
 const clearConversationSearch = UI.$("#clearConversationSearch");
 const chatProfileAction = UI.$("#chatProfileAction");
+const authGate = UI.$("#messagesAuthGate");
+const loginAction = UI.$("#messagesLoginAction");
+const signupAction = UI.$("#messagesSignupAction");
 
 let user = null;
 let conversations = [];
@@ -353,13 +356,19 @@ async function hydrateMedia(messages) {
           `;
         } else {
           node.innerHTML = `
-            <audio
-              class="message-audio"
-              controls
-              preload="metadata"
-              src="${UI.esc(url)}"
-            ></audio>
+            <div class="voice-player" data-voice-player>
+              <button class="voice-play" type="button" aria-label="Reproduzir áudio">
+                <svg class="voice-play-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7Z"/></svg>
+                <svg class="voice-pause-icon hidden" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5h3v14H8zM14 5h3v14h-3z"/></svg>
+              </button>
+              <div class="voice-track-wrap">
+                <input class="voice-progress" type="range" min="0" max="1000" value="0" aria-label="Progresso do áudio">
+                <div class="voice-time"><span data-voice-current>0:00</span><span data-voice-duration>0:00</span></div>
+              </div>
+              <audio class="voice-audio" preload="metadata" src="${UI.esc(url)}"></audio>
+            </div>
           `;
+          setupVoicePlayer(node.querySelector("[data-voice-player]"));
         }
 
         requestAnimationFrame(() => {
@@ -375,7 +384,7 @@ async function hydrateMedia(messages) {
 }
 
 
-function ensureImageViewer() {
+function formatAudioTime(value) {\n  const seconds = Number.isFinite(Number(value)) ? Math.max(0, Math.floor(Number(value))) : 0;\n  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;\n}\n\nfunction setupVoicePlayer(root) {\n  if (!root) return;\n  const audio = root.querySelector(".voice-audio");\n  const play = root.querySelector(".voice-play");\n  const playIcon = root.querySelector(".voice-play-icon");\n  const pauseIcon = root.querySelector(".voice-pause-icon");\n  const progress = root.querySelector(".voice-progress");\n  const current = root.querySelector("[data-voice-current]");\n  const duration = root.querySelector("[data-voice-duration]");\n\n  const sync = () => {\n    const total = Number.isFinite(audio.duration) ? audio.duration : 0;\n    const now = Number.isFinite(audio.currentTime) ? audio.currentTime : 0;\n    progress.value = total ? String(Math.round((now / total) * 1000)) : "0";\n    current.textContent = formatAudioTime(now);\n    duration.textContent = formatAudioTime(total);\n  };\n\n  const syncPlaying = () => {\n    const active = !audio.paused && !audio.ended;\n    playIcon.classList.toggle("hidden", active);\n    pauseIcon.classList.toggle("hidden", !active);\n    root.classList.toggle("is-playing", active);\n  };\n\n  play.onclick = async () => {\n    document.querySelectorAll(".voice-audio").forEach(other => {\n      if (other !== audio && !other.paused) other.pause();\n    });\n    if (audio.paused) await audio.play().catch(() => {});\n    else audio.pause();\n    syncPlaying();\n  };\n\n  progress.oninput = () => {\n    if (!Number.isFinite(audio.duration) || !audio.duration) return;\n    audio.currentTime = (Number(progress.value) / 1000) * audio.duration;\n    sync();\n  };\n\n  audio.addEventListener("loadedmetadata", sync);\n  audio.addEventListener("durationchange", sync);\n  audio.addEventListener("timeupdate", sync);\n  audio.addEventListener("play", syncPlaying);\n  audio.addEventListener("pause", syncPlaying);\n  audio.addEventListener("ended", () => { audio.currentTime = 0; sync(); syncPlaying(); });\n}\n\nfunction ensureImageViewer() {
   let viewer = document.querySelector("#messageImageViewer");
 
   if (viewer) return viewer;
@@ -463,9 +472,14 @@ messageList.addEventListener("click", async event => {
 
   const messageId = deleteButton.dataset.deleteMessage;
 
-  const confirmed = window.confirm(
-    "Apagar esta mensagem?\n\nEla será removida da conversa."
-  );
+  const confirmed = await UI.confirmDialog({
+    title: "Apagar mensagem?",
+    message: "Essa mensagem será removida da conversa para você e para a outra pessoa.",
+    confirmText: "Apagar",
+    cancelText: "Cancelar",
+    danger: true,
+    icon: "✕"
+  });
 
   if (!confirmed) return;
 
@@ -666,10 +680,22 @@ UI.$("#chatBack").onclick = () => {
 
 onAuthStateChanged(auth, async account => {
   if (!account || account.isAnonymous) {
-    location.replace("login.html?next=mensagens.html");
+    user = null;
+    stopConversations?.();
+    stopMessages?.();
+    stopConversations = null;
+    stopMessages = null;
+    currentConversation = null;
+    shell.classList.add("hidden");
+    authGate?.classList.remove("hidden");
+    const next = `${location.pathname.split("/").pop() || "mensagens.html"}${location.search || ""}`;
+    if (loginAction) loginAction.href = `login.html?next=${encodeURIComponent(next)}`;
+    if (signupAction) signupAction.href = `cadastro.html?next=${encodeURIComponent(next)}`;
     return;
   }
   user = account;
+  authGate?.classList.add("hidden");
+  shell.classList.remove("hidden");
 
   stopConversations?.();
   stopConversations = watchConversations(user.uid, list => {

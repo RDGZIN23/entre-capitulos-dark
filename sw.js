@@ -1,4 +1,4 @@
-const CACHE="entre-capitulos-v5";
+const CACHE="entre-capitulos-v6";
 const ASSETS=[
   "/",
   "/index.html",

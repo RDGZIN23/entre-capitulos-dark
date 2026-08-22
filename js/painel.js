@@ -58,12 +58,13 @@ document.addEventListener("DOMContentLoaded", () => {
     openBook(id, false, false);
   });
 
-  $("#deleteBook").addEventListener("click", () => {
+  $("#deleteBook").addEventListener("click", async () => {
     const id = $("#editBookId").value;
     const data = EC.getData();
     const book = data.books.find(item => item.id === id);
     if (!book) return;
-    if (!confirm(`Excluir \"${book.title}\" e todos os capítulos?`)) return;
+    const ok = await UI.confirmDialog({title: "Excluir livro?", message: `“${book.title}” e todos os capítulos serão removidos permanentemente.`, confirmText: "Excluir", danger: true, icon: "✕"});
+    if (!ok) return;
 
     data.books = data.books.filter(item => item.id !== id);
     data.user.favorites = (data.user.favorites || []).filter(item => item !== id);
@@ -237,12 +238,13 @@ document.addEventListener("DOMContentLoaded", () => {
     chapterSection.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  function deleteChapter(bookId, number) {
+  async function deleteChapter(bookId, number) {
     const data = EC.getData();
     const book = data.books.find(item => item.id === bookId);
     const chapter = book?.chapters?.find(item => Number(item.number) === number);
     if (!book || !chapter) return;
-    if (!confirm(`Excluir o capítulo ${chapter.number} — \"${chapter.title}\"?`)) return;
+    const ok = await UI.confirmDialog({title: "Excluir capítulo?", message: `Capítulo ${chapter.number} — “${chapter.title}” será removido permanentemente.`, confirmText: "Excluir", danger: true, icon: "✕"});
+    if (!ok) return;
 
     book.chapters = book.chapters.filter(item => Number(item.number) !== number);
     EC.saveData(data);

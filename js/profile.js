@@ -708,10 +708,6 @@ async function loadPublicProfile(id, user) {
   const messageButton = UI.$("#messageProfileBtn");
   if (messageButton) {
     messageButton.onclick = () => {
-      if (!user || user.isAnonymous) {
-        location.href = `login.html?next=${encodeURIComponent(`mensagens.html?to=${id}`)}`;
-        return;
-      }
       location.href = `mensagens.html?to=${encodeURIComponent(id)}`;
     };
   }

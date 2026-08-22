@@ -1,14 +1,26 @@
 import { auth, db } from "./firebase-config.js";
+import { APP } from "./config.js";
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   updateProfile,
-  onAuthStateChanged
+  onAuthStateChanged,
+  GoogleAuthProvider,
+  signInWithPopup,
+  getAdditionalUserInfo
 } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
-import { doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
+import {
+  collection,
+  doc,
+  getDoc,
+  setDoc,
+  addDoc,
+  serverTimestamp
+} from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
 
 const form = UI.$("#authForm");
 const btn = UI.$("#authSubmit");
+const googleBtn = UI.$("#googleAuth");
 const msg = UI.$("#authMessage");
 const mode = document.body.dataset.auth;
 const rawNext = new URLSearchParams(location.search).get("next") || "";
@@ -30,64 +42,164 @@ form.onsubmit = async event => {
   const pass = UI.$("#password").value;
   if (pass.length < 6) return show("A senha precisa ter pelo menos 6 caracteres.");
 
-  sending = true;
-  btn.disabled = true;
-  btn.textContent = mode === "signup" ? "Criando conta..." : "Entrando...";
+  setBusy(true, mode === "signup" ? "Criando conta..." : "Entrando...");
 
   try {
     let cred;
     let name = "";
+    let isNew = false;
+
     if (mode === "signup") {
       name = UI.$("#name").value.trim();
       cred = await createUserWithEmailAndPassword(auth, email, pass);
+      isNew = true;
       await updateProfile(cred.user, { displayName: name });
     } else {
       cred = await signInWithEmailAndPassword(auth, email, pass);
     }
 
-    const userRef = doc(db, "usuarios", cred.user.uid);
-    const snap = await getDoc(userRef);
-    if (!snap.exists()) {
-      await setDoc(userRef, {
-        uid: cred.user.uid,
-        nome: name || cred.user.displayName || "Leitor",
-        email: cred.user.email || "",
-        tipo: "leitor",
-        foto: "",
-        fotoURL: "",
-        biografia: "",
-        criadoEm: serverTimestamp(),
-        atualizadoEm: serverTimestamp()
-      }, { merge: true });
-    }
+    await finalizeAccount(cred, { preferredName: name, isNew });
+  } catch (error) {
+    handleError(error);
+  }
+};
 
-    await setDoc(doc(db, "autores", cred.user.uid), {
-      uid: cred.user.uid,
-      nome: name || cred.user.displayName || "Leitor",
-      fotoURL: cred.user.photoURL || "",
+if (googleBtn) {
+  googleBtn.onclick = async () => {
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: "select_account" });
+    setBusy(true, "Conectando ao Google...");
+
+    try {
+      const cred = await signInWithPopup(auth, provider);
+      const info = getAdditionalUserInfo(cred);
+      await finalizeAccount(cred, {
+        preferredName: cred.user.displayName || "",
+        isNew: info?.isNewUser === true
+      });
+    } catch (error) {
+      handleError(error);
+    }
+  };
+}
+
+async function finalizeAccount(cred, { preferredName = "", isNew = false } = {}) {
+  const u = cred.user;
+  const userRef = doc(db, "usuarios", u.uid);
+  const authorRef = doc(db, "autores", u.uid);
+  const [userSnap, authorSnap] = await Promise.all([
+    getDoc(userRef).catch(() => null),
+    getDoc(authorRef).catch(() => null)
+  ]);
+
+  const newProfile = !userSnap?.exists?.();
+  const name = preferredName || u.displayName || userSnap?.data?.()?.nome || "Leitor";
+  const photo = u.photoURL || userSnap?.data?.()?.fotoURL || userSnap?.data?.()?.foto || "";
+
+  if (newProfile) {
+    await setDoc(userRef, {
+      uid: u.uid,
+      nome: name,
+      email: u.email || "",
+      tipo: "leitor",
+      foto: photo,
+      fotoURL: photo,
+      biografia: "",
+      criadoEm: serverTimestamp(),
+      atualizadoEm: serverTimestamp()
+    }, { merge: true });
+  } else {
+    await setDoc(userRef, {
+      nome: userSnap.data().nome || name,
+      email: u.email || userSnap.data().email || "",
+      fotoURL: userSnap.data().fotoURL || photo,
+      atualizadoEm: serverTimestamp()
+    }, { merge: true });
+  }
+
+  if (!authorSnap?.exists?.()) {
+    await setDoc(authorRef, {
+      uid: u.uid,
+      nome: name,
+      fotoURL: photo,
       privacidadeSeguidores: "publico",
       privacidadeSeguindo: "publico",
       privacidadeLeituras: "privado",
       privacidadeMensagens: "todos",
       atualizadoEm: serverTimestamp()
     }, { merge: true });
-
-    show("Pronto. Entrando...", "ok");
-    setTimeout(() => location.replace(next), 250);
-  } catch (error) {
-    console.error(error);
-    sending = false;
-    btn.disabled = false;
-    btn.textContent = mode === "signup" ? "Criar conta" : "Entrar";
-    show(({
-      "auth/email-already-in-use": "Este e-mail já está em uso.",
-      "auth/invalid-credential": "E-mail ou senha incorretos.",
-      "auth/invalid-email": "E-mail inválido.",
-      "auth/weak-password": "Senha muito fraca.",
-      "auth/network-request-failed": "Verifique sua conexão."
-    })[error.code] || error.message || "Não foi possível continuar.");
+  } else {
+    const ad = authorSnap.data();
+    await setDoc(authorRef, {
+      nome: ad.nome || name,
+      fotoURL: ad.fotoURL || photo,
+      atualizadoEm: serverTimestamp()
+    }, { merge: true });
   }
-};
+
+  if (isNew || newProfile) await followCreatorByDefault(u).catch(error => console.warn("Follow inicial adiado:", error));
+
+  show(isNew ? "Conta criada. Bem-vindo ao Entre Capítulos!" : "Pronto. Entrando...", "ok");
+  setTimeout(() => location.replace(next), 300);
+}
+
+async function followCreatorByDefault(u) {
+  const creatorUid = APP.creatorUid;
+  if (!creatorUid || !u?.uid || creatorUid === u.uid) return false;
+
+  const rootRef = doc(db, "seguindoAutores", `${u.uid}_${creatorUid}`);
+  const snap = await getDoc(rootRef);
+  if (snap.exists()) return false;
+
+  const data = {
+    usuarioId: u.uid,
+    autorId: creatorUid,
+    criadoEm: serverTimestamp(),
+    origem: "boas_vindas"
+  };
+
+  await setDoc(rootRef, data);
+  await Promise.all([
+    setDoc(doc(db, "usuarios", u.uid, "seguindo", creatorUid), data, { merge: true }).catch(() => {}),
+    setDoc(doc(db, "autores", creatorUid, "seguidores", u.uid), data, { merge: true }).catch(() => {})
+  ]);
+
+  await addDoc(collection(db, "notificacoes"), {
+    destinatarioId: creatorUid,
+    remetenteId: u.uid,
+    tipo: "seguidor",
+    texto: "Nova conta começou seguindo o perfil oficial.",
+    lida: false,
+    criadoEm: serverTimestamp()
+  }).catch(() => {});
+
+  return true;
+}
+
+function setBusy(state, label = "") {
+  sending = state;
+  btn.disabled = state;
+  if (googleBtn) googleBtn.disabled = state;
+  btn.textContent = state ? label : (mode === "signup" ? "Criar conta" : "Entrar");
+  if (state && googleBtn) googleBtn.classList.add("is-busy");
+  else googleBtn?.classList.remove("is-busy");
+}
+
+function handleError(error) {
+  console.error(error);
+  setBusy(false);
+  show(({
+    "auth/email-already-in-use": "Este e-mail já está em uso.",
+    "auth/invalid-credential": "E-mail ou senha incorretos.",
+    "auth/invalid-email": "E-mail inválido.",
+    "auth/weak-password": "Senha muito fraca.",
+    "auth/network-request-failed": "Verifique sua conexão.",
+    "auth/popup-closed-by-user": "A janela do Google foi fechada antes de terminar.",
+    "auth/popup-blocked": "O navegador bloqueou a janela do Google. Permita pop-ups e tente novamente.",
+    "auth/unauthorized-domain": "Este domínio ainda precisa ser autorizado no Firebase Authentication.",
+    "auth/operation-not-allowed": "Ative o provedor Google no Firebase Authentication para usar este botão."
+  })[error.code] || error.message || "Não foi possível continuar.");
+}
 
 function safeLocalNext(value) {
   const v = String(value || "").trim();

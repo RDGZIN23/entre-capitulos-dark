@@ -6,6 +6,33 @@ const timeMs=v=>v?.toMillis?.() ?? (v?.seconds? v.seconds*1000 : Number(v)||0);
 const timeAgo=v=>{const ms=timeMs(v);if(!ms)return"";const d=Math.max(0,Date.now()-ms),m=Math.floor(d/60000);if(m<1)return"agora";if(m<60)return`há ${m} min`;const h=Math.floor(m/60);if(h<24)return`há ${h} h`;const days=Math.floor(h/24);if(days<30)return`há ${days} d`;return new Date(ms).toLocaleDateString("pt-BR")};
 const safeHttps=u=>{try{const x=new URL(String(u||""));return x.protocol==="https:"?x.href:""}catch{return""}};
 function toast(msg){let t=$("#toast");if(!t){t=document.createElement("div");t.id="toast";t.className="toast";document.body.appendChild(t)}t.textContent=msg;t.classList.add("show");clearTimeout(window.__toast);window.__toast=setTimeout(()=>t.classList.remove("show"),2600)}
+function ensureDialogHost(){
+ let host=$("#ecDialogHost");
+ if(host)return host;
+ host=document.createElement("div");
+ host.id="ecDialogHost";
+ host.className="ec-dialog-host hidden";
+ host.innerHTML=`<div class="ec-dialog-backdrop" data-dialog-cancel></div><section class="ec-dialog" role="dialog" aria-modal="true" aria-labelledby="ecDialogTitle"><button class="ec-dialog-close" type="button" aria-label="Fechar" data-dialog-cancel>×</button><div class="ec-dialog-icon" id="ecDialogIcon">!</div><h2 id="ecDialogTitle">Confirmar ação</h2><p id="ecDialogMessage"></p><div class="ec-dialog-actions"><button id="ecDialogCancel" class="btn" type="button" data-dialog-cancel>Cancelar</button><button id="ecDialogConfirm" class="btn btn-primary" type="button">Confirmar</button></div></section>`;
+ document.body.appendChild(host);
+ return host;
+}
+function dialog({title="Confirmar ação",message="",confirmText="Confirmar",cancelText="Cancelar",danger=false,icon="!",showCancel=true}={}){
+ const host=ensureDialogHost(),titleEl=$("#ecDialogTitle",host),messageEl=$("#ecDialogMessage",host),confirmBtn=$("#ecDialogConfirm",host),cancelBtn=$("#ecDialogCancel",host),iconEl=$("#ecDialogIcon",host);
+ titleEl.textContent=title;messageEl.textContent=message;confirmBtn.textContent=confirmText;cancelBtn.textContent=cancelText;iconEl.textContent=icon;
+ cancelBtn.classList.toggle("hidden",!showCancel);confirmBtn.classList.toggle("btn-danger",!!danger);confirmBtn.classList.toggle("btn-primary",!danger);
+ host.classList.remove("hidden");document.documentElement.classList.add("ec-dialog-open");
+ return new Promise(resolve=>{
+   let done=false;
+   const finish=value=>{if(done)return;done=true;host.classList.add("hidden");document.documentElement.classList.remove("ec-dialog-open");confirmBtn.onclick=null;host.querySelectorAll("[data-dialog-cancel]").forEach(el=>el.onclick=null);document.removeEventListener("keydown",onKey);resolve(value)};
+   const onKey=e=>{if(e.key==="Escape")finish(false)};
+   confirmBtn.onclick=()=>finish(true);
+   host.querySelectorAll("[data-dialog-cancel]").forEach(el=>el.onclick=()=>finish(false));
+   document.addEventListener("keydown",onKey);
+   setTimeout(()=>((danger&&showCancel)?cancelBtn:confirmBtn).focus(),20);
+ });
+}
+function confirmDialog(options={}){return dialog({...options,showCancel:true})}
+function alertDialog(options={}){return dialog({...options,showCancel:false,confirmText:options.confirmText||"Entendi"})}
 function initials(name="Leitor"){return name.split(/\s+/).filter(Boolean).slice(0,2).map(x=>x[0]).join("").toUpperCase()}
 function cover(book,cls="book-cover"){const url=safeHttps(book?.cover||book?.capa);if(url)return`<div class="${cls}"><img src="${esc(url)}" alt="Capa de ${esc(book?.title||book?.titulo||"Livro")}" loading="${cls==="hero-cover"?"eager":"lazy"}"></div>`;return`<div class="${cls}"><div class="cover-title">${esc(book?.title||book?.titulo||"Livro")}</div><div class="cover-author">${esc(book?.author||book?.autor||"")}</div></div>`}
 function bookCard(b){return`<a class="book-card" href="livro.html?id=${encodeURIComponent(b.id)}">${cover(b)}<div class="book-info"><strong>${esc(b.title)}</strong><span>${esc(b.author||"Autor")}</span><div class="book-stats"><span>◉ ${fmt(b.reads||0)}</span><span>★ ${b.rating||"Novo"}</span></div></div></a>`}
@@ -128,4 +155,4 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape")toggleAccountMenu(fa
 function footer(){const f=$("#siteFooter");if(f)f.innerHTML=`<div class="container site-footer-inner"><span>© 2026 Entre Capítulos · Onde cada página ganha vida.</span><span><a href="sobre.html">Sobre</a> · <a href="privacidade.html">Privacidade</a> · <a href="configuracoes.html">Configurações</a></span></div>`}
 function setTheme(pref){localStorage.setItem("ec-theme",pref);const resolved=pref==="system"?(matchMedia("(prefers-color-scheme: light)").matches?"light":"dark"):pref;document.documentElement.dataset.theme=resolved;document.documentElement.dataset.themePreference=pref}
 document.addEventListener("DOMContentLoaded",()=>{footer();if("serviceWorker"in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{})});
-window.UI={$, $$, esc, fmt, timeMs, timeAgo, safeHttps, toast, initials, cover, bookCard, shell, setTheme};
+window.UI={$, $$, esc, fmt, timeMs, timeAgo, safeHttps, toast, dialog, confirmDialog, alertDialog, initials, cover, bookCard, shell, setTheme};

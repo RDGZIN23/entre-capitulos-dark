@@ -30,6 +30,10 @@ service cloud.firestore {
       return userId + "_" + authorId;
     }
 
+    function bookLikeId(bookId, userId) {
+      return bookId + "_" + userId;
+    }
+
     function followersArePublic(uid) {
       let data = get(/databases/$(database)/documents/autores/$(uid)).data;
       return !("privacidadeSeguidores" in data) || data.privacidadeSeguidores == "publico";
@@ -427,7 +431,7 @@ service cloud.firestore {
         && request.resource.data.remetenteId == request.auth.uid
         && request.resource.data.destinatarioId is string
         && request.resource.data.destinatarioId != request.auth.uid
-        && request.resource.data.tipo in ["mensagem", "seguidor", "comentario", "avaliacao"]
+        && request.resource.data.tipo in ["mensagem", "seguidor", "comentario", "avaliacao", "curtida_livro"]
         && (
           (
             request.resource.data.tipo == "mensagem"
@@ -458,6 +462,16 @@ service cloud.firestore {
             && get(
               /databases/$(database)/documents/livros/$(request.resource.data.livroId)
             ).data.criadoPor == request.resource.data.destinatarioId
+          )
+          || (
+            request.resource.data.tipo == "curtida_livro"
+            && request.resource.data.livroId is string
+            && get(
+              /databases/$(database)/documents/livros/$(request.resource.data.livroId)
+            ).data.criadoPor == request.resource.data.destinatarioId
+            && exists(
+              /databases/$(database)/documents/curtidasLivros/$(bookLikeId(request.resource.data.livroId, request.auth.uid))
+            )
           )
         );
 
@@ -569,6 +583,32 @@ service cloud.firestore {
 
       allow delete:
         if isAdmin();
+    }
+
+    // ==============================
+    // CURTIDAS DE LIVROS
+    // ==============================
+
+    match /curtidasLivros/{likeId} {
+      allow read:
+        if true;
+
+      allow create:
+        if registered()
+        && request.resource.data.usuarioId == request.auth.uid
+        && request.resource.data.livroId is string
+        && request.resource.data.livroId.size() > 0
+        && likeId == request.resource.data.livroId + "_" + request.auth.uid;
+
+      allow delete:
+        if (
+          registered()
+          && resource.data.usuarioId == request.auth.uid
+        )
+        || isAdmin();
+
+      allow update:
+        if false;
     }
 
     // ==============================

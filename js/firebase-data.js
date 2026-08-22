@@ -84,6 +84,29 @@ export async function toggleFavorite(user,book){
  const ref=doc(db,"favoritos",`${user.uid}_${book.id}`),s=await getDoc(ref);if(s.exists()){await deleteDoc(ref);return false}
  await setDoc(ref,{usuarioId:user.uid,livroId:book.id,titulo:book.title,autor:book.author,capa:book.cover||"",criadoEm:serverTimestamp()});return true;
 }
+export async function bookLikeState(user,bookId){
+ const [mine,count]=await Promise.all([
+  user&&!user.isAnonymous?getDoc(doc(db,"curtidasLivros",`${bookId}_${user.uid}`)).catch(()=>null):Promise.resolve(null),
+  getCountFromServer(query(collection(db,"curtidasLivros"),where("livroId","==",bookId))).catch(()=>({data:()=>({count:0})}))
+ ]);
+ return {liked:!!mine?.exists?.(),count:Number(count.data().count||0)};
+}
+export async function toggleBookLike(user,book){
+ if(!user||user.isAnonymous||!book?.id)throw new Error("Entre na sua conta para curtir.");
+ const ref=doc(db,"curtidasLivros",`${book.id}_${user.uid}`),snap=await getDoc(ref);
+ if(snap.exists()){
+  await deleteDoc(ref);
+ }else{
+  await setDoc(ref,{usuarioId:user.uid,livroId:book.id,criadoEm:serverTimestamp()});
+  if(book.authorId&&book.authorId!==user.uid){
+   await addDoc(collection(db,"notificacoes"),{
+    destinatarioId:book.authorId,remetenteId:user.uid,tipo:"curtida_livro",livroId:book.id,livroTitulo:book.title||"",texto:`Curtiu ${book.title||"seu livro"}`,lida:false,criadoEm:serverTimestamp()
+   }).catch(()=>{});
+  }
+ }
+ const count=await getCountFromServer(query(collection(db,"curtidasLivros"),where("livroId","==",book.id))).catch(()=>({data:()=>({count:0})}));
+ return {liked:!snap.exists(),count:Number(count.data().count||0)};
+}
 export async function isFollowing(uid,authorId){
  if(!uid||!authorId||uid===authorId)return false;
  const s=await getDoc(doc(db,"seguindoAutores",`${uid}_${authorId}`));
